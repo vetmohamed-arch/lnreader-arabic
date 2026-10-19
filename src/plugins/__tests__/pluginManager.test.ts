@@ -10,6 +10,7 @@ import {
   reloadInstalledPlugins,
 } from '../pluginManager';
 import type { PluginItem } from '../types';
+import { BUNDLED_REPOSITORY_URL } from '../constants';
 
 jest.mock('@database/queries/RepositoryQueries', () => ({
   getEnabledRepositoriesFromDb: jest.fn().mockResolvedValue([]),
@@ -71,6 +72,28 @@ describe('fetchPlugins', () => {
 
     expect(getEnabledRepositoriesFromDb).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledWith(repositoryUrl);
+    fetchSpy.mockRestore();
+  });
+
+  it('lets the bundled repository replace a plugin with the same id', async () => {
+    const repositoryUrl = 'https://example.com/plugins.min.json';
+    const upstream = { id: 'fictionzone', version: '1.0.2' } as PluginItem;
+    const bundled = { id: 'fictionzone', version: '2.0.0' } as PluginItem;
+    jest
+      .mocked(getEnabledRepositoriesFromDb)
+      .mockResolvedValueOnce([{ id: 1, url: repositoryUrl, enabled: true }]);
+    const fetchSpy = jest
+      .spyOn(global, 'fetch')
+      .mockImplementation(
+        async url =>
+          ({
+            json: async () =>
+              url === BUNDLED_REPOSITORY_URL ? [bundled] : [upstream],
+          }) as Response,
+      );
+
+    await expect(fetchPlugins()).resolves.toEqual([bundled]);
+    expect(fetchSpy).toHaveBeenLastCalledWith(BUNDLED_REPOSITORY_URL);
     fetchSpy.mockRestore();
   });
 });

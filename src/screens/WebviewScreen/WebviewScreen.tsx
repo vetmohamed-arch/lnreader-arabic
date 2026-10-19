@@ -12,6 +12,7 @@ import { resolveUrl } from '@services/plugin/fetch';
 import {
   WEBVIEW_LOCAL_STORAGE,
   WEBVIEW_SESSION_STORAGE,
+  WEBVIEW_COOKIE_KEY,
   store,
 } from '@plugins/helpers/storage';
 import Appbar from './components/Appbar';
@@ -20,6 +21,7 @@ import Menu from './components/Menu';
 type StorageData = {
   localStorage?: Record<string, string>;
   sessionStorage?: Record<string, string>;
+  cookie?: string;
 };
 
 const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
@@ -39,7 +41,9 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
   const [currentUrl, setCurrentUrl] = useState(uri);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
-  const [tempData, setTempData] = useState<StorageData>();
+  // A ref, not state: snapshots arrive every few seconds and must not
+  // re-render the WebView.
+  const tempData = useRef<StorageData | undefined>(undefined);
   const [menuVisible, setMenuVisible] = useState(false);
 
   const handleNavigation = (e: WebViewNavigation) => {
@@ -64,14 +68,18 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
   );
 
   const saveData = () => {
-    if (pluginId && tempData && isSave) {
+    const data = tempData.current;
+    if (pluginId && data && isSave) {
       store.set(
         pluginId + WEBVIEW_LOCAL_STORAGE,
-        JSON.stringify(tempData?.localStorage || {}),
+        JSON.stringify({
+          ...data.localStorage,
+          ...(data.cookie ? { [WEBVIEW_COOKIE_KEY]: data.cookie } : {}),
+        }),
       );
       store.set(
         pluginId + WEBVIEW_SESSION_STORAGE,
-        JSON.stringify(tempData?.sessionStorage || {}),
+        JSON.stringify(data.sessionStorage || {}),
       );
     }
   };
@@ -89,8 +97,22 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
     return false;
   });
 
-  const injectJavaScriptCode =
-    'window.ReactNativeWebView.postMessage(JSON.stringify({localStorage, sessionStorage}))';
+  // Report again every few seconds: single-page sites sign in without a
+  // page load, so a one-off snapshot would miss the login.
+  const injectJavaScriptCode = `(function () {
+    function send() {
+      try {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          localStorage: localStorage,
+          sessionStorage: sessionStorage,
+          cookie: document.cookie,
+        }));
+      } catch (e) {}
+    }
+    send();
+    setInterval(send, 3000);
+  })();
+  true;`;
 
   // A new `source` reloads the page, so keep it stable across progress updates.
   const source = useMemo(() => ({ uri }), [uri]);
@@ -125,9 +147,13 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
         injectedJavaScript={injectJavaScriptCode}
         onNavigationStateChange={handleNavigation}
         onLoadProgress={handleLoadProgress}
-        onMessage={({ nativeEvent }: { nativeEvent: { data: string } }) =>
-          setTempData(JSON.parse(nativeEvent.data))
-        }
+        onMessage={({ nativeEvent }: { nativeEvent: { data: string } }) => {
+          try {
+            tempData.current = JSON.parse(nativeEvent.data);
+          } catch {
+            // Messages posted by the site itself are not storage snapshots.
+          }
+        }}
       />
       {menuVisible ? (
         <Menu

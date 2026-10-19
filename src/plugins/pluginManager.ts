@@ -14,7 +14,7 @@ import NativeFile from '@modules/native-file';
 import { showToast } from '@utils/showToast';
 import { LEGACY_PLUGIN_STORAGE, PLUGIN_STORAGE } from '@utils/Storages';
 import { getMMKVObject, setMMKVObject } from '@utils/mmkv/mmkv';
-import { INSTALLED_PLUGINS_KEY } from './constants';
+import { BUNDLED_REPOSITORY_URL, INSTALLED_PLUGINS_KEY } from './constants';
 
 import {
   store,
@@ -177,10 +177,13 @@ const updatePlugin = async (plugin: PluginItem) => {
 
 const fetchPlugins = async (): Promise<PluginItem[]> => {
   const allPlugins: PluginItem[] = [];
-  const allRepositories = await getEnabledRepositoriesFromDb();
+  const repositoryUrls = (await getEnabledRepositoriesFromDb())
+    .map(({ url }) => url)
+    .filter(url => url !== BUNDLED_REPOSITORY_URL);
+  repositoryUrls.push(BUNDLED_REPOSITORY_URL);
 
   const repoPluginsRes = await Promise.allSettled(
-    allRepositories.map(({ url }) => fetch(url).then(res => res.json())),
+    repositoryUrls.map(url => fetch(url).then(res => res.json())),
   );
 
   repoPluginsRes.forEach(repoPlugins => {
