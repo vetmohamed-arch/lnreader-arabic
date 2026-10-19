@@ -5,6 +5,9 @@ const store = createMMKV({ id: 'plugin_db' });
 const PLUGIN_STORAGE = '_DB_';
 const WEBVIEW_LOCAL_STORAGE = '_LocalStorage';
 const WEBVIEW_SESSION_STORAGE = '_SessionStorage';
+// Readable WebView cookies are saved inside the localStorage snapshot under
+// this key, so plugins can reuse a login kept in a cookie.
+const WEBVIEW_COOKIE_KEY = '__document_cookie';
 
 interface StoredItem {
   created: Date;
@@ -120,4 +123,9 @@ class SessionStorage {
 export { Storage, LocalStorage, SessionStorage };
 
 //to record data from the web view
-export { WEBVIEW_LOCAL_STORAGE, WEBVIEW_SESSION_STORAGE, store };
+export {
+  WEBVIEW_LOCAL_STORAGE,
+  WEBVIEW_SESSION_STORAGE,
+  WEBVIEW_COOKIE_KEY,
+  store,
+};
