@@ -683,9 +683,18 @@
     const settings = (await chrome.storage.local.get('settings')).settings || {};
     const delay = Math.max(0, Number(settings.delayMs ?? 800));
     const a = lastAnalysis || (await analyze());
-    const novelData = { ...a.novel, title: opts.novelTitle || a.novel.title };
+    const novelData = { ...a.novel, title: opts.novelTitle || a.novel.title, id: opts.novelId };
+    // The chapter list page is what update checks reopen later.
+    if (opts.mode === 'toc') novelData.tocUrl = location.href;
+    else {
+      // A chapter page must not replace the novel's own link.
+      novelData.fallbackUrl = novelData.url;
+      delete novelData.url;
+    }
     const { novel } = await send({ type: 'saveNovel', novel: novelData });
-    const skip = new Set(opts.skipSaved ? (await send({ type: 'savedKeys', novelId: novel.id })).keys : []);
+    const savedKeys = (await send({ type: 'savedKeys', novelId: novel.id })).keys;
+    const skip = new Set(opts.skipSaved || opts.afterSaved ? savedKeys : []);
+    const ids = [];
     let saved = 0;
     let failed = 0;
     const report = (t, done) => {
@@ -696,7 +705,19 @@
       if (opts.mode === 'toc') {
         let list = a.chapters;
         if (opts.expand && a.kind !== 'fictionzone') list = await expandToc(a.toc, job);
-        const from = Math.max(1, opts.from || 1);
+        let from = Math.max(1, opts.from || 1);
+        if (opts.afterSaved) {
+          // Only what comes after the last chapter already in the library.
+          let last = -1;
+          list.forEach((c, i) => {
+            if (skip.has(c.key)) last = i;
+          });
+          if (last < 0) {
+            report('ما لقيتش أي فصل محفوظ من الرواية دي في الفهرس.', true);
+            return { saved: 0, failed: 0, novelId: novel.id, ids };
+          }
+          from = last + 2;
+        }
         const to = Math.min(list.length, opts.to || list.length);
         const picked = list.slice(from - 1, to);
         job.state.total = picked.length;
@@ -708,7 +729,8 @@
           try {
             const ch = await withRetry(() => (a.kind === 'fictionzone' ? fz.chapter(c) : loadChapter(c.url)));
             if (!ch.paragraphs.length) throw new Error('فصل فاضي');
-            await send({ type: 'saveChapter', novelId: novel.id, chapter: { key: c.key, url: c.url, order, title: ch.title && ch.title.length < 160 && a.kind !== 'fictionzone' && CHAPTER_WORD.test(ch.title) ? ch.title : c.title || ch.title, paragraphs: ch.paragraphs } });
+            const r = await send({ type: 'saveChapter', novelId: novel.id, chapter: { key: c.key, url: c.url, order, title: ch.title && ch.title.length < 160 && a.kind !== 'fictionzone' && CHAPTER_WORD.test(ch.title) ? ch.title : c.title || ch.title, paragraphs: ch.paragraphs } });
+            ids.push(r.id);
             saved++;
             job.state.saved = saved;
           } catch (e) {
@@ -727,9 +749,11 @@
           visited.add(url);
           report(`بحمّل ${i + 1} من ${count}`);
           const ch = await withRetry(() => loadChapter(url));
-          if (!ch.paragraphs.length) break;
+          // A "next" link on the newest chapter often leads to the index or a notice page.
+          if (!ch.paragraphs.length || (i > 0 && ch.length < 200)) break;
           if (!skip.has(url)) {
-            await send({ type: 'saveChapter', novelId: novel.id, chapter: { key: url, url, title: ch.title, paragraphs: ch.paragraphs } });
+            const r = await send({ type: 'saveChapter', novelId: novel.id, chapter: { key: url, url, title: ch.title, paragraphs: ch.paragraphs } });
+            ids.push(r.id);
             saved++;
             job.state.saved = saved;
           }
@@ -739,7 +763,7 @@
       }
       const end = job.cancelled ? 'وقفت التحميل.' : 'خلصت!';
       report(`${end} اتحفظ ${saved} فصل${failed ? `، و${failed} فشلوا` : ''} في مكتبة LNReader.`, true);
-      return { saved, failed, novelId: novel.id };
+      return { saved, failed, novelId: novel.id, ids };
     } catch (e) {
       report(`حصلت مشكلة: ${e.message} (اتحفظ ${saved} فصل)`, true);
       throw e;
@@ -764,6 +788,8 @@
         return Promise.resolve({ ok: true });
       },
       status: () => Promise.resolve({ running: job ? job.state : null }),
+      // Used by update checks: answers when the download is over.
+      run: () => run(msg.opts),
     }[msg.cmd];
     if (!work) return;
     work().then(reply, e => reply({ error: e.message }));

@@ -135,6 +135,12 @@ export function effectiveGlossary(user, useBuiltin) {
   return useBuiltin ? `${user || ''}\n${BUILTIN_GLOSSARY}` : user || '';
 }
 
+/** The novel's own glossary first, then the user's, then the built-in one. */
+function glossaryFor(settings) {
+  const own = [settings.novelGlossary, settings.glossary].filter(Boolean).join('\n');
+  return parseGlossary(effectiveGlossary(own, settings.builtinGlossary !== false));
+}
+
 /**
  * Glossary terms put Arabic inside the source text and auto-detection would
  * then return it untranslated, so mostly-Latin chapters are sent as English.
@@ -156,7 +162,7 @@ export function detectSource(texts) {
  */
 export async function translateChapter(chapter, settings = {}) {
   const to = settings.targetLang || 'ar';
-  const entries = parseGlossary(effectiveGlossary(settings.glossary, settings.builtinGlossary !== false));
+  const entries = glossaryFor(settings);
   const originals = [chapter.title || '', ...chapter.paragraphs.map(p => p.x)];
   const texts = originals.map(t => applyGlossary(t, entries) || ' ');
   const out = await translateTexts(texts, to, detectSource(originals), settings.engine || 'auto');
@@ -169,6 +175,5 @@ export async function translateChapter(chapter, settings = {}) {
 }
 
 export function translationKey(settings = {}) {
-  const entries = parseGlossary(effectiveGlossary(settings.glossary, settings.builtinGlossary !== false));
-  return glossaryKey(entries);
+  return glossaryKey(glossaryFor(settings));
 }

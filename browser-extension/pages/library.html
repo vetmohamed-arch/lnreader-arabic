@@ -23,6 +23,7 @@
     .chapters a:hover { color: var(--accent); }
     .chapters .x { padding: 0 6px; border: 0; background: none; color: var(--muted); }
     .tag { font-size: 11px; border-radius: 4px; padding: 0 5px; background: var(--line); }
+    .tag.new { background: var(--accent); color: var(--accent-text); font-size: 12px; margin: 0 8px; padding: 1px 6px; vertical-align: middle; display: inline-block; }
     .empty { text-align: center; padding: 48px 16px; }
     dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text); width: min(640px, 92vw); }
     dialog textarea { width: 100%; height: 220px; direction: ltr; font-family: Consolas, monospace; font-size: 13px; }
@@ -36,12 +37,17 @@
       <img src="../icons/icon48.png" width="32" height="32" alt="">
       <h1 class="grow">مكتبة LNReader</h1>
       <input id="search" type="text" placeholder="دوّر في المكتبة">
-      <label class="row"><button id="importBtn">استورد ملف</button></label>
+      <button id="checkBtn" class="primary">شيّك على الجديد</button>
+      <button id="importBtn">استورد ملف</button>
       <input id="importFile" type="file" accept=".epub,.txt,.html,.htm" multiple hidden>
+      <button id="backupBtn">نسخة احتياطية</button>
+      <button id="restoreBtn">استرجاع</button>
+      <input id="restoreFile" type="file" accept=".gz,.json" hidden>
       <button id="settingsBtn">الإعدادات</button>
     </div>
   </header>
   <main>
+    <p id="updateStatus" class="muted"></p>
     <p id="msg" class="progress" hidden></p>
     <div id="grid" class="grid"></div>
     <div id="empty" class="empty card" hidden>
@@ -62,10 +68,34 @@
       <label class="row"><input id="builtinGlossary" type="checkbox"> استخدم قاموس مصطلحات الزراعة الجاهز (تشي، دانتيان، نواة ذهبية...)</label>
       <label for="glossary">قاموسك: سطر لكل كلمة بالشكل <code>Lin Feng = لين فنغ</code> (كلماتك بتغلب الجاهز)</label>
       <textarea id="glossary" placeholder="Long Chen = لونغ تشن"></textarea>
+      <label>متابعة الفصول الجديدة</label>
+      <select id="checkHours">
+        <option value="0">مقفولة</option>
+        <option value="1">كل ساعة</option>
+        <option value="3">كل 3 ساعات</option>
+        <option value="6">كل 6 ساعات</option>
+        <option value="12">كل 12 ساعة</option>
+        <option value="24">مرة في اليوم</option>
+      </select>
+      <label class="row"><input id="autoTranslateNew" type="checkbox"> ترجم الفصول الجديدة أول ما تتحمّل</label>
+      <label class="row"><input id="notify" type="checkbox"> نبهني لما ينزل جديد</label>
       <label class="row">استنى <input id="delayMs" type="number" min="0" step="100" style="width:90px"> مللي ثانية بين كل فصل والتاني وقت التحميل</label>
       <div class="row" style="margin-top:12px;justify-content:flex-end">
         <button value="cancel">إلغاء</button>
         <button id="saveSettings" class="primary" value="default">حفظ</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="novelGlossary">
+    <form method="dialog">
+      <h2 style="margin-top:0" id="ngTitle">قاموس الرواية</h2>
+      <p class="muted">أسماء الشخصيات والأماكن والتقنيات بتاعة الرواية دي بس، سطر لكل كلمة: <code>Long Chen = لونغ تشن</code>. بتغلب قاموسك العام والقاموس الجاهز.</p>
+      <textarea id="ngText" placeholder="Long Chen = لونغ تشن"></textarea>
+      <label class="row"><input id="ngRetranslate" type="checkbox" checked> أعد ترجمة الفصول المترجمة بالقاموس الجديد</label>
+      <div class="row" style="margin-top:12px;justify-content:flex-end">
+        <button value="cancel">إلغاء</button>
+        <button id="ngSave" class="primary" value="default">حفظ</button>
       </div>
     </form>
   </dialog>

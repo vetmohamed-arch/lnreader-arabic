@@ -16,6 +16,9 @@ export const DEFAULTS = {
   glossary: '',
   builtinGlossary: true,
   delayMs: 800, // pause between chapter downloads
+  checkHours: 6, // look for new chapters this often; 0 turns it off
+  autoTranslateNew: true, // translate chapters found by update checks
+  notify: true, // system notification when new chapters arrive
 };
 
 export const FONTS = {
