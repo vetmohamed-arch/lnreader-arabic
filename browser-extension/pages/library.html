@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>مكتبة LNReader</title>
+  <link rel="icon" href="../icons/icon32.png">
+  <link rel="stylesheet" href="common.css">
+  <style>
+    header { position: sticky; top: 0; background: var(--bg); border-bottom: 1px solid var(--line); padding: 12px 16px; z-index: 2; }
+    header h1 { margin: 0; font-size: 20px; }
+    main { max-width: 1100px; margin: auto; padding: 16px; }
+    #search { width: 220px; }
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+    .novel { display: flex; gap: 12px; }
+    .cover { width: 72px; height: 104px; border-radius: 6px; object-fit: cover; background: var(--line); flex: none; display: grid; place-items: center; font-size: 28px; color: var(--muted); }
+    .novel h2 { font-size: 16px; margin: 0 0 2px; line-height: 1.4; }
+    .actions { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+    .actions button, .actions select { padding: 4px 8px; font-size: 13px; }
+    .chapters { margin-top: 8px; max-height: 320px; overflow: auto; border-top: 1px solid var(--line); padding-top: 6px; }
+    .chapters .row { flex-wrap: nowrap; padding: 2px 0; font-size: 14px; }
+    .chapters a { color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chapters a:hover { color: var(--accent); }
+    .chapters .x { padding: 0 6px; border: 0; background: none; color: var(--muted); }
+    .tag { font-size: 11px; border-radius: 4px; padding: 0 5px; background: var(--line); }
+    .empty { text-align: center; padding: 48px 16px; }
+    dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text); width: min(640px, 92vw); }
+    dialog textarea { width: 100%; height: 220px; direction: ltr; font-family: Consolas, monospace; font-size: 13px; }
+    dialog label { display: block; margin: 8px 0 4px; }
+    .progress { font-size: 13px; color: var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="row" style="max-width:1100px;margin:auto">
+      <img src="../icons/icon48.png" width="32" height="32" alt="">
+      <h1 class="grow">مكتبة LNReader</h1>
+      <input id="search" type="text" placeholder="دوّر في المكتبة">
+      <label class="row"><button id="importBtn">استورد ملف</button></label>
+      <input id="importFile" type="file" accept=".epub,.txt,.html,.htm" multiple hidden>
+      <button id="settingsBtn">الإعدادات</button>
+    </div>
+  </header>
+  <main>
+    <p id="msg" class="progress" hidden></p>
+    <div id="grid" class="grid"></div>
+    <div id="empty" class="empty card" hidden>
+      <h2>المكتبة فاضية</h2>
+      <p>افتح أي رواية على موقعها (صفحة الفهرس أو أي فصل)، ودوس على أيقونة الإضافة واختار «حمّل».<br>أو استورد ملف EPUB أو TXT من زرار «استورد ملف».</p>
+    </div>
+  </main>
+
+  <dialog id="settings">
+    <form method="dialog">
+      <h2 style="margin-top:0">الإعدادات</h2>
+      <label>محرك الترجمة</label>
+      <select id="engine">
+        <option value="auto">مايكروسوفت (Edge)، ولو وقع جوجل</option>
+        <option value="edge">مايكروسوفت بس</option>
+        <option value="google">جوجل بس</option>
+      </select>
+      <label class="row"><input id="builtinGlossary" type="checkbox"> استخدم قاموس مصطلحات الزراعة الجاهز (تشي، دانتيان، نواة ذهبية...)</label>
+      <label for="glossary">قاموسك: سطر لكل كلمة بالشكل <code>Lin Feng = لين فنغ</code> (كلماتك بتغلب الجاهز)</label>
+      <textarea id="glossary" placeholder="Long Chen = لونغ تشن"></textarea>
+      <label class="row">استنى <input id="delayMs" type="number" min="0" step="100" style="width:90px"> مللي ثانية بين كل فصل والتاني وقت التحميل</label>
+      <div class="row" style="margin-top:12px;justify-content:flex-end">
+        <button value="cancel">إلغاء</button>
+        <button id="saveSettings" class="primary" value="default">حفظ</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="library.js"></script>
+</body>
+</html>

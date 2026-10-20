@@ -1,0 +1,57 @@
+:root {
+  --bg: #f6efe2;
+  --panel: #fffaf1;
+  --text: #2b2420;
+  --muted: #7a6c5f;
+  --line: #e3d6c2;
+  --accent: #b5651d;
+  --accent-text: #fff;
+  --danger: #b3261e;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #1b1815;
+    --panel: #24201c;
+    --text: #efe6d8;
+    --muted: #a99a88;
+    --line: #3a332c;
+    --accent: #d8873e;
+    --accent-text: #1b1815;
+    --danger: #ef7d74;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.6 system-ui, 'Segoe UI', Tahoma, sans-serif;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+button.danger { color: var(--danger); }
+button:disabled { opacity: 0.5; cursor: default; }
+input[type='text'], input[type='number'], select, textarea {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 6px 8px;
+  min-width: 0;
+}
+input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.muted { color: var(--muted); font-size: 13px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.grow { flex: 1; min-width: 0; }
+.error { color: var(--danger); }
+[hidden] { display: none !important; }

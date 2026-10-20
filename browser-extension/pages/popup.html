@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>LNReader Web</title>
+  <link rel="stylesheet" href="common.css">
+  <style>
+    body { width: 380px; padding: 12px; }
+    h1 { font-size: 16px; margin: 0; }
+    section { margin-top: 10px; }
+    label.field { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+    #title { width: 100%; }
+    input[type='number'] { width: 80px; }
+    .files { max-height: 160px; overflow: auto; display: grid; gap: 4px; }
+    .files .row { flex-wrap: nowrap; }
+    .files .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ext { font-size: 11px; background: var(--line); border-radius: 4px; padding: 0 5px; }
+    footer { margin-top: 12px; display: flex; gap: 8px; }
+    footer button { flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="row">
+    <img src="../icons/icon32.png" width="24" height="24" alt="">
+    <h1 class="grow">LNReader Web</h1>
+  </div>
+
+  <p id="status" class="muted">بقرا الصفحة...</p>
+
+  <div id="main" hidden>
+    <section>
+      <label class="field" for="title">اسم الرواية في المكتبة</label>
+      <input id="title" type="text">
+      <div id="source" class="muted"></div>
+    </section>
+
+    <section id="running" class="card" hidden>
+      <div id="runningText"></div>
+      <div class="row" style="margin-top:8px"><button id="stop" class="danger">وقّف التحميل</button></div>
+    </section>
+
+    <section id="tocBox" class="card" hidden>
+      <div id="tocInfo"></div>
+      <div class="row" style="margin-top:8px">
+        من <input id="from" type="number" min="1" value="1">
+        لـ <input id="to" type="number" min="1">
+      </div>
+      <label class="row muted" id="expandRow" hidden><input id="expand" type="checkbox" checked> الفهرس على كذا صفحة، اجمعهم كلهم</label>
+      <label class="row muted"><input id="skip" type="checkbox" checked> تخطّى الفصول اللي اتحمّلت قبل كده</label>
+      <div class="row" style="margin-top:8px"><button id="getToc" class="primary grow">حمّل الفصول</button></div>
+    </section>
+
+    <section id="chapterBox" class="card" hidden>
+      <div>الفصل ده: <b id="chapterTitle"></b></div>
+      <div class="row" style="margin-top:8px">
+        حمّل <input id="count" type="number" min="1" value="10"> فصل بادئًا من ده
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="getNext" class="primary grow">حمّل</button>
+        <button id="getOne">الفصل ده بس</button>
+      </div>
+      <div id="noNext" class="muted" hidden>ما لقيتش زرار "الفصل التالي" هنا، فهيتحمّل الفصل ده بس.</div>
+    </section>
+
+    <section id="filesBox" hidden>
+      <label class="field">ملفات على الصفحة</label>
+      <div id="files" class="files"></div>
+    </section>
+  </div>
+
+  <p id="error" class="error" hidden></p>
+
+  <footer>
+    <button id="library">افتح المكتبة</button>
+  </footer>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

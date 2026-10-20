@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - 'browser-extension/**'
+      - '.github/workflows/browser-extension.yml'
   schedule:
     - cron: '30 0 * * *'
   workflow_dispatch:
