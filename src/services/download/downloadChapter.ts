@@ -132,6 +132,17 @@ const downloadChapter = async (chapterId: number) => {
   }
 };
 
+const MAX_DOWNLOAD_CONCURRENCY = 5;
+
+const getDownloadConcurrency = async (chapterId: number) => {
+  const chapter = await getChapter(chapterId);
+  const novel = chapter ? await getNovelById(chapter.novelId) : undefined;
+  const requested = novel ? getPlugin(novel.pluginId)?.downloadConcurrency : 1;
+  return typeof requested === 'number' && requested >= 1
+    ? Math.min(Math.floor(requested), MAX_DOWNLOAD_CONCURRENCY)
+    : 1;
+};
+
 export const downloadChapters = async (
   {
     chapters,
@@ -149,28 +160,36 @@ export const downloadChapters = async (
     chapters.length,
   );
   const failures = [...checkpoint.failures];
+  const concurrency = await getDownloadConcurrency(chapters[0].chapterId);
 
-  for (let index = checkpoint.nextIndex; index < chapters.length; index++) {
-    const chapter = chapters[index];
+  for (
+    let index = checkpoint.nextIndex;
+    index < chapters.length;
+    index += concurrency
+  ) {
+    const batch = chapters.slice(index, index + concurrency);
     setMeta(meta => ({
       ...meta,
       isRunning: true,
       progress: index / chapters.length,
-      progressText: `${index + 1}/${chapters.length} · ${chapter.chapterName}`,
+      progressText: `${index + 1}/${chapters.length} · ${batch[0].chapterName}`,
     }));
 
-    try {
-      await downloadChapter(chapter.chapterId);
-    } catch (error) {
-      failures.push(
-        `${chapter.chapterName}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
+    const results = await Promise.all(
+      batch.map(chapter =>
+        downloadChapter(chapter.chapterId).then(
+          () => undefined,
+          (error: unknown) =>
+            `${chapter.chapterName}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+        ),
+      ),
+    );
+    results.forEach(failure => failure && failures.push(failure));
 
     await context.updateCheckpoint(
-      JSON.stringify({ nextIndex: index + 1, failures }),
+      JSON.stringify({ nextIndex: index + batch.length, failures }),
     );
   }
 

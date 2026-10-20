@@ -1,6 +1,5 @@
- 
 import { getUserAgent } from '@hooks/persisted/useUserAgent';
-import NativeFile from '@modules/native-file'
+import NativeFile from '@modules/native-file';
 import { parse as parseProto } from 'protobufjs';
 
 type FetchInit = {
@@ -40,12 +39,25 @@ const makeInit = (init?: FetchInit) => {
   return init;
 };
 
+// React Native's fetch has no read timeout, so one stalled connection would
+// hang a chapter download (and the queue behind it) forever.
+const FETCH_API_TIMEOUT_MS = 60000;
+
 export const fetchApi = async (
   url: string,
   init?: FetchInit,
 ): Promise<Response> => {
   init = makeInit(init);
-  return await fetch(url, init);
+  if (init.signal) {
+    return await fetch(url, init);
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_API_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 };
 
 const FILE_READER_PREFIX_LENGTH = 'data:application/octet-stream;base64,'

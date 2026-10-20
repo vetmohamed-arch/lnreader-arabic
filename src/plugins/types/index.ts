@@ -129,4 +129,6 @@ export interface Plugin extends PluginItem {
   searchNovels: (searchTerm: string, pageNo: number) => Promise<NovelItem[]>;
   resolveUrl?: (path: string, isNovel?: boolean) => string;
   webStorageUtilized?: boolean;
+  /** Chapters to download at once; API-backed sources can take more than 1. */
+  downloadConcurrency?: number;
 }
