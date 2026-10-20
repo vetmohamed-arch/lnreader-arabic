@@ -193,7 +193,7 @@ function FictionZonePlugin() {
   this.name = 'Fiction Zone';
   this.icon = 'src/en/fictionzone/icon.png';
   this.site = SITE;
-  this.version = '2.0.0';
+  this.version = '2.0.1';
   this.webStorageUtilized = true;
   this.pluginSettings = {
     token: {
@@ -252,12 +252,10 @@ FictionZonePlugin.prototype.token = function () {
 
 FictionZonePlugin.prototype.api = function (path, withAuth) {
   var self = this;
-  return this.request(path, withAuth).catch(function (error) {
-    // A stale login must not break reading the public library.
-    if (withAuth && /token|unauthori/i.test(error.message)) {
-      return self.request(path, false);
-    }
-    throw error;
+  if (!withAuth || !this.token()) return this.request(path, false);
+  // A stale or rejected login must never break reading the public library.
+  return this.request(path, true).catch(function () {
+    return self.request(path, false);
   });
 };
 
@@ -397,18 +395,23 @@ FictionZonePlugin.prototype.parseNovel = function (novelPath) {
       author: author ? author.display_name : '',
       summary: summary,
     };
-    return self.chapters(d.id, novelPath).then(function (chapters) {
-      novel.chapters = chapters;
-      if (!chapters.length && isPlatformSlug(slug)) {
-        novel.summary =
-          (self.token()
-            ? '⚠ Fiction Zone did not return the chapters. Open the novel in WebView (globe icon) once, then pull down to refresh.'
-            : '⚠ This novel is from Fiction Zone Omniportal and its chapters need a Fiction Zone login. Tap the globe icon, sign in on the site, go back, then pull down to refresh.') +
-          '\n\n' +
-          novel.summary;
-      }
-      return novel;
-    });
+    return self
+      .chapters(d.id, novelPath)
+      .catch(function () {
+        return [];
+      })
+      .then(function (chapters) {
+        novel.chapters = chapters;
+        if (!chapters.length && isPlatformSlug(slug)) {
+          novel.summary =
+            (self.token()
+              ? '⚠ Fiction Zone did not return the chapters. Open the novel in WebView (globe icon) once, then pull down to refresh.'
+              : '⚠ This novel is from Fiction Zone Omniportal and its chapters need a Fiction Zone login. Tap the globe icon, sign in on the site, go back, then pull down to refresh.') +
+            '\n\n' +
+            novel.summary;
+        }
+        return novel;
+      });
   });
 };
 
@@ -434,6 +437,21 @@ FictionZonePlugin.prototype.chapters = function (novelId, novelPath) {
       });
     },
   );
+};
+
+// The app asks for this when a novel was saved with no chapters (Omniportal
+// novels before signing in), so it must exist or the novel fails to open.
+FictionZonePlugin.prototype.parsePage = function (novelPath) {
+  var self = this;
+  var slug = novelPath.replace(/^novel\//, '');
+  return this.api(
+    '/platform/novel-details?slug=' + encodeURIComponent(slug),
+    true,
+  ).then(function (d) {
+    return self.chapters(d.id, novelPath).then(function (chapters) {
+      return { chapters: chapters };
+    });
+  });
 };
 
 FictionZonePlugin.prototype.parseChapter = function (chapterPath) {
