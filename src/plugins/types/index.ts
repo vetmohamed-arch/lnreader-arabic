@@ -128,6 +128,8 @@ export interface Plugin extends PluginItem {
   parseChapter: (chapterPath: string) => Promise<string>;
   searchNovels: (searchTerm: string, pageNo: number) => Promise<NovelItem[]>;
   resolveUrl?: (path: string, isNovel?: boolean) => string;
+  /** The novel path for a site URL, so a page opened in WebView can be read in the app. */
+  pathFromUrl?: (url: string) => string | undefined;
   webStorageUtilized?: boolean;
   /** Chapters to download at once; API-backed sources can take more than 1. */
   downloadConcurrency?: number;

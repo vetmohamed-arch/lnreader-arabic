@@ -15,6 +15,8 @@ interface AppbarProps {
   webView: RefObject<WebView<object> | null>;
   setMenuVisible: (value: boolean) => void;
   goBack: () => void;
+  /** Shown when the page is a novel the app can open. */
+  openNovel?: () => void;
 }
 
 const Appbar: React.FC<AppbarProps> = ({
@@ -26,6 +28,7 @@ const Appbar: React.FC<AppbarProps> = ({
   webView,
   setMenuVisible,
   goBack,
+  openNovel,
 }) => {
   const { top } = useSafeAreaInsets();
 
@@ -59,6 +62,15 @@ const Appbar: React.FC<AppbarProps> = ({
           </Text>
         </View>
         <View style={styles.iconContainer}>
+          {openNovel ? (
+            <IconButtonV2
+              name="download-outline"
+              color={theme.primary}
+              onPress={openNovel}
+              padding={12}
+              theme={theme}
+            />
+          ) : null}
           <IconButtonV2
             name="arrow-left"
             color={theme.onSurface}
