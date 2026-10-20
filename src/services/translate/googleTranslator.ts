@@ -1,3 +1,5 @@
+import { withTimeout } from '@utils/fetch/fetch';
+
 /**
  * Fallback translator: the keyless Google Translate endpoint used by its
  * browser extension. Undocumented like Edge's, but run by a different company,
@@ -5,6 +7,7 @@
  */
 
 const TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/single';
+const TRANSLATE_TIMEOUT_MS = 30000;
 
 // Google answers 413 on long bodies; stay well under its ~5k character limit.
 const MAX_BATCH_CHARS = 4000;
@@ -12,19 +15,24 @@ const MAX_BATCH_CHARS = 4000;
 type GoogleResponse = [[string, string, ...unknown[]][] | null, ...unknown[]];
 
 const requestTranslation = async (text: string, to: string, from: string) => {
-  const res = await fetch(
-    `${TRANSLATE_URL}?client=gtx&sl=${from || 'auto'}&tl=${to}&dt=t`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `q=${encodeURIComponent(text)}`,
-    },
-  );
-  if (!res.ok) {
-    throw new Error(`Google translation failed (${res.status})`);
-  }
-  const data: GoogleResponse = await res.json();
-  return (data[0] ?? []).map(sentence => sentence[0]).join('');
+  // A stalled connection would otherwise hang a chapter, and a download
+  // queue waiting on it, forever.
+  return withTimeout(TRANSLATE_TIMEOUT_MS, async signal => {
+    const res = await fetch(
+      `${TRANSLATE_URL}?client=gtx&sl=${from || 'auto'}&tl=${to}&dt=t`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        signal,
+        body: `q=${encodeURIComponent(text)}`,
+      },
+    );
+    if (!res.ok) {
+      throw new Error(`Google translation failed (${res.status})`);
+    }
+    const data: GoogleResponse = await res.json();
+    return (data[0] ?? []).map(sentence => sentence[0]).join('');
+  });
 };
 
 /**

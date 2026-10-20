@@ -20,6 +20,7 @@ var SITE = 'https://fictionzone.net';
 var API = SITE + '/api/__api_party/fictionzone';
 var COVER = 'https://cdn.fictionzone.net/insecure/rs:fill:330:500/';
 var PAGE_SIZE = 20; // the API caps pages at 20
+var TIMEOUT_MS = 25000;
 var JWT = /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/;
 
 var GENRES = [
@@ -193,7 +194,9 @@ function FictionZonePlugin() {
   this.name = 'Fiction Zone';
   this.icon = 'src/en/fictionzone/icon.png';
   this.site = SITE;
-  this.version = '2.0.1';
+  this.version = '2.0.2';
+  // Each chapter is one small API call, so several can download at once.
+  this.downloadConcurrency = 4;
   this.webStorageUtilized = true;
   this.pluginSettings = {
     token: {
@@ -259,10 +262,24 @@ FictionZonePlugin.prototype.api = function (path, withAuth) {
   });
 };
 
+// One retry: a dropped or stalled connection is the usual reason a chapter
+// download fails, and it rarely happens twice in a row.
 FictionZonePlugin.prototype.request = function (path, withAuth) {
+  var self = this;
+  return this.send(path, withAuth).catch(function (error) {
+    if (error && error.fzReply) throw error;
+    return self.send(path, withAuth);
+  });
+};
+
+FictionZonePlugin.prototype.send = function (path, withAuth) {
   var headers = [['content-type', 'application/json']];
   var token = withAuth ? this.token() : undefined;
   if (token) headers.push(['authorization', 'Bearer ' + token]);
+  var controller = new AbortController();
+  var timer = setTimeout(function () {
+    controller.abort();
+  }, TIMEOUT_MS);
   return fetchApi(API, {
     method: 'POST',
     headers: {
@@ -272,10 +289,21 @@ FictionZonePlugin.prototype.request = function (path, withAuth) {
       'Referer': SITE + '/',
     },
     body: JSON.stringify({ path: path, headers: headers, method: 'GET' }),
+    signal: controller.signal,
   })
     .then(function (res) {
       return res.text();
     })
+    .then(
+      function (text) {
+        clearTimeout(timer);
+        return text;
+      },
+      function (error) {
+        clearTimeout(timer);
+        throw error;
+      },
+    )
     .then(function (text) {
       var json;
       try {
@@ -287,7 +315,11 @@ FictionZonePlugin.prototype.request = function (path, withAuth) {
       }
       if (!json.success) {
         var err = json.error || {};
-        throw new Error(err.message || json.message || 'Fiction Zone error');
+        var failure = new Error(
+          err.message || json.message || 'Fiction Zone error',
+        );
+        failure.fzReply = true; // the site answered: retrying won't help
+        throw failure;
       }
       return json.data;
     });

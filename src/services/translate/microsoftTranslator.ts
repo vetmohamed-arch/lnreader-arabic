@@ -1,3 +1,5 @@
+import { withTimeout } from '@utils/fetch/fetch';
+
 /**
  * Translates chapter HTML with Microsoft Translator through the keyless
  * endpoint Microsoft Edge's built-in page translation uses. Edge retired its
@@ -6,6 +8,7 @@
  */
 
 const TRANSLATE_URL = 'https://edge.microsoft.com/translate/translatetext';
+const TRANSLATE_TIMEOUT_MS = 30000;
 
 // The endpoint rejects requests over 1000 strings or 50k characters.
 const MAX_BATCH_ITEMS = 1000;
@@ -23,21 +26,26 @@ const requestTranslation = async (
   to: string,
   from: string,
 ) => {
-  const res = await fetch(
-    `${TRANSLATE_URL}?from=${from}&to=${to}&isEnterpriseClient=false`,
-    {
-      method: 'POST',
-      headers: { ...BROWSER_HEADERS, 'Content-Type': 'application/json' },
-      body: JSON.stringify(texts),
-    },
-  );
-  if (!res.ok) {
-    throw new Error(`Translation failed (${res.status})`);
-  }
-  const data: TranslationItem[] = await res.json();
-  return data.map(item =>
-    typeof item === 'string' ? item : item.translations?.[0]?.text ?? '',
-  );
+  // A stalled connection would otherwise hang a chapter, and a download
+  // queue waiting on it, forever.
+  return withTimeout(TRANSLATE_TIMEOUT_MS, async signal => {
+    const res = await fetch(
+      `${TRANSLATE_URL}?from=${from}&to=${to}&isEnterpriseClient=false`,
+      {
+        method: 'POST',
+        headers: { ...BROWSER_HEADERS, 'Content-Type': 'application/json' },
+        signal,
+        body: JSON.stringify(texts),
+      },
+    );
+    if (!res.ok) {
+      throw new Error(`Translation failed (${res.status})`);
+    }
+    const data: TranslationItem[] = await res.json();
+    return data.map(item =>
+      typeof item === 'string' ? item : item.translations?.[0]?.text ?? '',
+    );
+  });
 };
 
 const ENTITIES: Record<string, string> = {
