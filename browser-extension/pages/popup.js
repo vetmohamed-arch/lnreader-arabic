@@ -44,7 +44,9 @@ function render() {
     showContinue(chapters);
   } else if (info.needsLogin) {
     $('tocBox').hidden = false;
-    $('tocInfo').textContent = 'الرواية دي من Omniportal وفصولها محتاجة تسجيل دخول في فيكشن زون. سجّل دخول في الموقع وافتح الإضافة تاني.';
+    $('tocInfo').textContent = info.loggedIn
+      ? 'لقيت تسجيل الدخول بتاعك، بس فيكشن زون ما رجّعش فصول للرواية دي. افتح أول فصل فيها من الموقع ودوس على الإضافة من صفحة الفصل، وهي هتمشي ورا «الفصل التالي».'
+      : 'الرواية دي من Omniportal وفصولها محتاجة تسجيل دخول في فيكشن زون، والإضافة مش لاقية تسجيل الدخول. سجّل دخول، حدّث الصفحة، وافتح الإضافة تاني. أو افتح أول فصل ودوس على الإضافة من صفحة الفصل.';
     $('getToc').disabled = true;
   }
 
@@ -55,7 +57,7 @@ function render() {
     if (!info.current.next) $('count').value = 1;
   }
 
-  if (info.kind === 'unknown' && !chapters.length) {
+  if (info.kind === 'unknown' && !chapters.length && !info.needsLogin) {
     $('status').hidden = false;
     $('status').textContent = 'ما لقيتش فصل ولا فهرس فصول في الصفحة دي. افتح صفحة الرواية (اللي فيها قايمة الفصول) أو أي فصل.';
   }
