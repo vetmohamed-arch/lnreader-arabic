@@ -1,3 +1,5 @@
+import { novelIdFor, savedKeys } from '../lib/db.js';
+
 const $ = id => document.getElementById(id);
 
 const params = new URLSearchParams(location.search);
@@ -39,6 +41,7 @@ function render() {
     $('to').value = chapters.length;
     $('from').max = $('to').max = chapters.length;
     $('expandRow').hidden = !info.tocPaged;
+    showContinue(chapters);
   } else if (info.needsLogin) {
     $('tocBox').hidden = false;
     $('tocInfo').textContent = 'الرواية دي من Omniportal وفصولها محتاجة تسجيل دخول في فيكشن زون. سجّل دخول في الموقع وافتح الإضافة تاني.';
@@ -86,6 +89,29 @@ function render() {
   );
 }
 
+/** When this novel is already in the library, offer to pick up after its last chapter. */
+async function showContinue(chapters) {
+  const keys = new Set(await savedKeys(novelIdFor(info.novel.host, $('title').value.trim())));
+  if (!keys.size) return;
+  let last = -1;
+  chapters.forEach((c, i) => {
+    if (keys.has(c.key)) last = i;
+  });
+  if (last < 0 && !info.tocPaged) return;
+  $('continueBox').hidden = false;
+  const left = chapters.length - last - 1;
+  if (last >= 0 && !left && !info.tocPaged) {
+    $('continueInfo').textContent = `عندك ${keys.size} فصل من الرواية دي، وكل الفصول اللي هنا متحمّلة.`;
+    $('continueBtn').hidden = true;
+    return;
+  }
+  $('continueInfo').textContent =
+    last >= 0
+      ? `عندك ${keys.size} فصل منها، آخرهم «${chapters[last].title}».`
+      : `عندك ${keys.size} فصل منها.`;
+  $('continueBtn').textContent = last >= 0 && !info.tocPaged ? `كمّل: حمّل الـ ${left} فصل الجديد` : 'كمّل من آخر فصل عندي';
+}
+
 async function start(opts) {
   $('error').hidden = true;
   const res = await ask('start', { ...opts, novelTitle: $('title').value.trim() });
@@ -101,6 +127,7 @@ $('getToc').onclick = () =>
     skipSaved: $('skip').checked,
     expand: info.tocPaged && $('expand').checked,
   });
+$('continueBtn').onclick = () => start({ mode: 'toc', afterSaved: true, expand: !!info.tocPaged });
 $('getNext').onclick = () => start({ mode: 'next', count: Number($('count').value) || 1, skipSaved: false });
 $('getOne').onclick = () => start({ mode: 'next', count: 1, skipSaved: false });
 $('stop').onclick = async () => {

@@ -88,7 +88,7 @@ async function translateCurrent() {
   const n = note('بيترجم الفصل...');
   $('translate').disabled = true;
   try {
-    const tr = await translateChapter(target, settings);
+    const tr = await translateChapter(target, { ...settings, novelGlossary: novel.glossary });
     target.translations = { ...(target.translations || {}), [settings.targetLang]: tr };
     await putChapter(target);
     if (chapter === target) {
@@ -218,12 +218,50 @@ addEventListener('scroll', () => {
   }, 600);
 });
 
+// ---------- adding a selected word to the novel's glossary ----------
+
+const addTerm = $('addTerm');
+document.addEventListener('mouseup', e => {
+  if (e.target === addTerm) return;
+  setTimeout(() => {
+    const sel = getSelection();
+    const term = sel.toString().replace(/\s+/g, ' ').trim();
+    if (!term || term.length > 60 || !$('page').contains(sel.anchorNode)) {
+      addTerm.hidden = true;
+      return;
+    }
+    const r = sel.getRangeAt(0).getBoundingClientRect();
+    addTerm.style.top = `${scrollY + r.bottom + 8}px`;
+    addTerm.style.left = `${Math.max(8, scrollX + r.left + r.width / 2 - 60)}px`;
+    addTerm.dataset.term = term;
+    addTerm.hidden = false;
+  });
+});
+addTerm.onclick = async () => {
+  const term = addTerm.dataset.term;
+  addTerm.hidden = true;
+  const isArabic = /[\u0600-\u06FF]/.test(term);
+  const answer = prompt(
+    isArabic ? `الكلمة «${term}» تتكتب إزاي بدالها في الترجمة؟` : `«${term}» تتترجم إيه بالعربي؟ (هتفضل كده في كل فصول الرواية دي)`,
+  );
+  if (!answer || !answer.trim()) return;
+  const line = `${term} = ${answer.trim()}`;
+  novel.glossary = novel.glossary ? `${novel.glossary.trimEnd()}\n${line}` : line;
+  await updateNovel(novelId, { glossary: novel.glossary });
+  if (chapter?.translations?.[settings.targetLang]) await translateCurrent();
+  else note(`اتضافت للقاموس: ${line}`);
+};
+
 // ---------- start ----------
 
 (async () => {
   settings = await getSettings();
   applyLook();
   novel = await getNovel(novelId);
+  if (novel?.newCount) {
+    await updateNovel(novelId, { newCount: 0 });
+    chrome.runtime.sendMessage({ type: 'refreshBadge' }).catch(() => {});
+  }
   if (!novel) {
     $('note').textContent = 'الرواية دي مش في المكتبة.';
     return;
