@@ -194,7 +194,7 @@ function FictionZonePlugin() {
   this.name = 'Fiction Zone';
   this.icon = 'src/en/fictionzone/icon.png';
   this.site = SITE;
-  this.version = '2.0.2';
+  this.version = '2.0.3';
   // Each chapter is one small API call, so several can download at once.
   this.downloadConcurrency = 4;
   this.webStorageUtilized = true;
@@ -519,6 +519,14 @@ FictionZonePlugin.prototype.resolveUrl = function (path, isNovel) {
     );
   }
   return SITE + '/novel/' + slug;
+};
+
+// Lets the app's WebView offer "open in app" on a Fiction Zone novel page.
+FictionZonePlugin.prototype.pathFromUrl = function (url) {
+  var portal = url.match(/fictionzone\.net\/omniportal\/(fq|qimao)\/(\d+)/i);
+  if (portal) return 'novel/' + portal[1].toLowerCase() + '-' + portal[2];
+  var novel = url.match(/fictionzone\.net\/novel\/([^/?#]+)/i);
+  return novel ? 'novel/' + novel[1] : undefined;
 };
 
 exports.default = new FictionZonePlugin();

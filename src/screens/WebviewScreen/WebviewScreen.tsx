@@ -67,6 +67,24 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
     [],
   );
 
+  const novelPath = useMemo(() => {
+    try {
+      return getPlugin(pluginId)?.pathFromUrl?.(currentUrl);
+    } catch {
+      return undefined;
+    }
+  }, [currentUrl, pluginId]);
+
+  const openNovel = () => {
+    if (!novelPath) return;
+    // Keep a login made on this page before leaving it.
+    saveData();
+    navigation.navigate('ReaderStack', {
+      screen: 'Novel',
+      params: { name: title, path: novelPath, pluginId, cover: null },
+    });
+  };
+
   const saveData = () => {
     const data = tempData.current;
     if (pluginId && data && isSave) {
@@ -131,6 +149,7 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
           saveData();
           navigation.goBack();
         }}
+        openNovel={novelPath ? openNovel : undefined}
       />
       <ProgressBar
         color={theme.primary}
