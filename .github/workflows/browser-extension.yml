@@ -1,0 +1,42 @@
+name: Browser Extension
+
+# Zips the Edge/Chrome extension in browser-extension/ and keeps it attached
+# to the `browser-extension` release, so there is always one download link.
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'browser-extension/**'
+      - '.github/workflows/browser-extension.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Zip extension
+        run: |
+          version=$(jq -r .version browser-extension/manifest.json)
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          (cd browser-extension && zip -r -X "../LNReader-Web-$version.zip" . -x 'README.md')
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="LNReader Web $VERSION for Microsoft Edge / Chrome. Unzip, then load the folder from edge://extensions with Developer mode on."
+          if gh release view browser-extension >/dev/null 2>&1; then
+            gh release edit browser-extension --title "LNReader Web $VERSION (Edge extension)" --notes "$notes"
+            for asset in $(gh release view browser-extension --json assets -q '.assets[].name'); do
+              gh release delete-asset browser-extension "$asset" -y
+            done
+          else
+            gh release create browser-extension --title "LNReader Web $VERSION (Edge extension)" --notes "$notes" --latest=false --target "$GITHUB_SHA"
+          fi
+          gh release upload browser-extension "LNReader-Web-$VERSION.zip" --clobber

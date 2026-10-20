@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LNReader</title>
+  <link rel="icon" href="../icons/icon32.png">
+  <link rel="stylesheet" href="common.css">
+  <style>
+    body[data-theme='light'] { --bg: #ffffff; --panel: #f7f7f7; --text: #1d1d1d; --muted: #6b6b6b; --line: #e2e2e2; color-scheme: light; }
+    body[data-theme='sepia'] { --bg: #f6efe2; --panel: #fffaf1; --text: #2b2420; --muted: #7a6c5f; --line: #e3d6c2; color-scheme: light; }
+    body[data-theme='dark'] { --bg: #1b1815; --panel: #24201c; --text: #e8dfd2; --muted: #a99a88; --line: #3a332c; --accent: #d8873e; --accent-text: #1b1815; color-scheme: dark; }
+    body[data-theme='black'] { --bg: #000; --panel: #111; --text: #cfcfcf; --muted: #8a8a8a; --line: #2a2a2a; --accent: #d8873e; --accent-text: #000; color-scheme: dark; }
+    #bar { position: fixed; inset: 0 0 auto 0; z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line); padding: 6px 12px; transition: transform .2s; }
+    #bar.hide { transform: translateY(-100%); }
+    #bar .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+    #bar button { padding: 4px 10px; }
+    article { margin: 0 auto; padding: 72px 16px 24px; }
+    article h1 { font-size: 1.35em; line-height: 1.5; margin: 0 0 1em; }
+    article p { margin: 0 0 .9em; }
+    article h3 { margin: 1.2em 0 .6em; }
+    article .orig { color: var(--muted); font-size: .85em; margin-bottom: .3em; }
+    nav.pager { display: flex; gap: 12px; margin: 32px auto 64px; padding: 0 16px; }
+    nav.pager button { flex: 1; padding: 12px; }
+    .panel { position: fixed; z-index: 6; top: 52px; inset-inline-end: 12px; width: min(360px, calc(100vw - 24px)); max-height: calc(100vh - 70px); overflow: auto; box-shadow: 0 8px 30px #0003; }
+    .panel h3 { margin: 0 0 8px; font-size: 15px; }
+    .panel .row { margin: 6px 0; }
+    .panel label.k { width: 90px; color: var(--muted); font-size: 13px; }
+    #toc a { display: block; padding: 4px 6px; border-radius: 6px; color: inherit; text-decoration: none; font-size: 14px; }
+    #toc a.cur { background: var(--line); font-weight: 600; }
+    #toc a:hover { color: var(--accent); }
+    .swatch { width: 28px; height: 28px; border-radius: 50%; padding: 0; }
+    #note { text-align: center; }
+  </style>
+</head>
+<body data-theme="sepia">
+  <div id="bar">
+    <div class="row" style="flex-wrap:nowrap">
+      <button id="back" title="المكتبة">☰ المكتبة</button>
+      <div class="grow title" id="novelTitle"></div>
+      <button id="translate" title="ترجم الفصل">ترجم</button>
+      <button id="tocBtn" title="الفصول">الفصول</button>
+      <button id="setBtn" title="شكل القراءة">Aa</button>
+    </div>
+  </div>
+
+  <div id="tocPanel" class="panel card" hidden>
+    <h3>الفصول</h3>
+    <input id="tocSearch" type="text" placeholder="دوّر على فصل" style="width:100%;margin-bottom:6px">
+    <div id="toc"></div>
+  </div>
+
+  <div id="setPanel" class="panel card" hidden>
+    <h3>شكل القراءة</h3>
+    <div class="row"><label class="k">الخلفية</label>
+      <button class="swatch" data-theme-btn="light" style="background:#fff" title="أبيض"></button>
+      <button class="swatch" data-theme-btn="sepia" style="background:#f6efe2" title="ورقي"></button>
+      <button class="swatch" data-theme-btn="dark" style="background:#1b1815" title="غامق"></button>
+      <button class="swatch" data-theme-btn="black" style="background:#000" title="أسود"></button>
+    </div>
+    <div class="row"><label class="k">حجم الخط</label><button data-step="fontSize:-1">A-</button><span id="fontSizeVal"></span><button data-step="fontSize:1">A+</button></div>
+    <div class="row"><label class="k">المسافات</label><button data-step="lineHeight:-0.1">−</button><span id="lineHeightVal"></span><button data-step="lineHeight:0.1">+</button></div>
+    <div class="row"><label class="k">عرض الصفحة</label><button data-step="width:-40">−</button><span id="widthVal"></span><button data-step="width:40">+</button></div>
+    <div class="row"><label class="k">الخط</label>
+      <select id="font">
+        <option value="system">خط النظام</option>
+        <option value="naskh">نسخ</option>
+        <option value="amiri">أميري</option>
+        <option value="kufi">كوفي</option>
+        <option value="serif">Serif</option>
+        <option value="sans">Sans</option>
+      </select>
+    </div>
+    <div class="row"><label class="k">الاتجاه</label>
+      <select id="direction"><option value="auto">تلقائي</option><option value="rtl">يمين لشمال</option><option value="ltr">شمال ليمين</option></select>
+      <select id="align"><option value="start">عادي</option><option value="justify">ضبط الأطراف</option></select>
+    </div>
+    <h3 style="margin-top:12px">الترجمة</h3>
+    <label class="row"><input id="showTranslation" type="checkbox"> اعرض الترجمة لو موجودة</label>
+    <label class="row"><input id="autoTranslate" type="checkbox"> ترجم كل فصل أفتحه تلقائي</label>
+    <label class="row"><input id="bilingual" type="checkbox"> اعرض الأصلي فوق كل فقرة مترجمة</label>
+  </div>
+
+  <article id="page"><p id="note" class="muted">بيفتح...</p></article>
+  <nav class="pager" id="pager" hidden>
+    <button id="prev">الفصل السابق</button>
+    <button id="next" class="primary">الفصل التالي</button>
+  </nav>
+
+  <script type="module" src="reader.js"></script>
+</body>
+</html>
