@@ -194,7 +194,7 @@ function FictionZonePlugin() {
   this.name = 'Fiction Zone';
   this.icon = 'src/en/fictionzone/icon.png';
   this.site = SITE;
-  this.version = '2.0.3';
+  this.version = '2.0.4';
   // Each chapter is one small API call, so several can download at once.
   this.downloadConcurrency = 4;
   this.webStorageUtilized = true;
@@ -248,9 +248,14 @@ FictionZonePlugin.prototype.token = function () {
   if (typeof manual === 'string' && manual.trim()) {
     return manual.trim().replace(/^Bearer\s+/i, '');
   }
-  return (
-    findToken(webLocalStorage.get(), 0) || findToken(webSessionStorage.get(), 0)
-  );
+  var local = webLocalStorage.get() || {};
+  // The Authorization header the site itself sent while signed in (recorded
+  // by the app's WebView) is the most reliable source.
+  var sent = local.__site_authorization;
+  if (typeof sent === 'string' && sent.trim()) {
+    return sent.trim().replace(/^Bearer\s+/i, '');
+  }
+  return findToken(local, 0) || findToken(webSessionStorage.get(), 0);
 };
 
 FictionZonePlugin.prototype.api = function (path, withAuth) {

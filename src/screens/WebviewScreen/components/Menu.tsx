@@ -13,6 +13,7 @@ interface MenuProps {
   currentUrl: string;
   webView: RefObject<WebView<object> | null>;
   setMenuVisible: (value: boolean) => void;
+  shareNetworkLog: () => void;
 }
 
 const Menu: React.FC<MenuProps> = ({
@@ -20,6 +21,7 @@ const Menu: React.FC<MenuProps> = ({
   currentUrl,
   webView,
   setMenuVisible,
+  shareNetworkLog,
 }) => {
   const { top } = useSafeAreaInsets();
 
@@ -73,6 +75,17 @@ const Menu: React.FC<MenuProps> = ({
         >
           <Text style={{ color: theme.onSurface }}>
             {getString('webview.clearData')}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.menuButton, { backgroundColor: theme.surface2 }]}
+          onPress={() => {
+            setMenuVisible(false);
+            shareNetworkLog();
+          }}
+        >
+          <Text style={{ color: theme.onSurface }}>
+            {getString('webview.shareNetworkLog')}
           </Text>
         </Pressable>
       </View>

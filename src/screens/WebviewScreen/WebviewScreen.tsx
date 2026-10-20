@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import WebView, { WebViewNavigation } from 'react-native-webview';
 import type { WebViewProgressEvent } from 'react-native-webview/lib/WebViewTypes';
 import { ProgressBar } from 'react-native-paper';
+import { Share } from 'react-native';
 
 import { getPlugin } from '@plugins/pluginManager';
 import { useBackHandler } from '@hooks';
@@ -12,16 +13,23 @@ import { resolveUrl } from '@services/plugin/fetch';
 import {
   WEBVIEW_LOCAL_STORAGE,
   WEBVIEW_SESSION_STORAGE,
+  WEBVIEW_AUTH_KEY,
   WEBVIEW_COOKIE_KEY,
   store,
 } from '@plugins/helpers/storage';
 import Appbar from './components/Appbar';
+import {
+  formatNetworkLog,
+  NETWORK_RECORDER_SCRIPT,
+  NetworkLog,
+} from './networkRecorder';
 import Menu from './components/Menu';
 
 type StorageData = {
   localStorage?: Record<string, string>;
   sessionStorage?: Record<string, string>;
   cookie?: string;
+  net?: NetworkLog;
 };
 
 const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
@@ -88,11 +96,21 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
   const saveData = () => {
     const data = tempData.current;
     if (pluginId && data && isSave) {
+      let previousAuth: string | undefined;
+      try {
+        previousAuth = JSON.parse(
+          store.getString(pluginId + WEBVIEW_LOCAL_STORAGE) || '{}',
+        )[WEBVIEW_AUTH_KEY];
+      } catch {}
       store.set(
         pluginId + WEBVIEW_LOCAL_STORAGE,
         JSON.stringify({
           ...data.localStorage,
           ...(data.cookie ? { [WEBVIEW_COOKIE_KEY]: data.cookie } : {}),
+          // A page that made no signed-in request yet keeps the last login.
+          ...(data.net?.auth || previousAuth
+            ? { [WEBVIEW_AUTH_KEY]: data.net?.auth || previousAuth }
+            : {}),
         }),
       );
       store.set(
@@ -124,6 +142,7 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
           localStorage: localStorage,
           sessionStorage: sessionStorage,
           cookie: document.cookie,
+          net: window.__lnrNet,
         }));
       } catch (e) {}
     }
@@ -163,12 +182,15 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
         setDisplayZoomControls={true}
         setBuiltInZoomControls={false}
         setSupportMultipleWindows={false}
+        injectedJavaScriptBeforeContentLoaded={NETWORK_RECORDER_SCRIPT}
         injectedJavaScript={injectJavaScriptCode}
         onNavigationStateChange={handleNavigation}
         onLoadProgress={handleLoadProgress}
         onMessage={({ nativeEvent }: { nativeEvent: { data: string } }) => {
           try {
             tempData.current = JSON.parse(nativeEvent.data);
+            // Save as it arrives so a login survives however the screen closes.
+            saveData();
           } catch {
             // Messages posted by the site itself are not storage snapshots.
           }
@@ -180,6 +202,11 @@ const WebviewScreen = ({ route, navigation }: WebviewScreenProps) => {
           currentUrl={currentUrl}
           webView={webViewRef}
           setMenuVisible={setMenuVisible}
+          shareNetworkLog={() =>
+            Share.share({
+              message: formatNetworkLog(currentUrl, tempData.current?.net),
+            })
+          }
         />
       ) : null}
     </>
