@@ -8,6 +8,8 @@ const WEBVIEW_SESSION_STORAGE = '_SessionStorage';
 // Readable WebView cookies are saved inside the localStorage snapshot under
 // this key, so plugins can reuse a login kept in a cookie.
 const WEBVIEW_COOKIE_KEY = '__document_cookie';
+// The Authorization header the site itself sent from the WebView.
+const WEBVIEW_AUTH_KEY = '__site_authorization';
 
 interface StoredItem {
   created: Date;
@@ -127,5 +129,6 @@ export {
   WEBVIEW_LOCAL_STORAGE,
   WEBVIEW_SESSION_STORAGE,
   WEBVIEW_COOKIE_KEY,
+  WEBVIEW_AUTH_KEY,
   store,
 };
