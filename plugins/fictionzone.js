@@ -127,6 +127,31 @@ var TAGS = [
   { label: 'Yaoi', value: '214' },
 ];
 
+// Public Fiction Zone glossary packs (Chinese term -> English), from
+// /glossary/collections.
+var GLOSSARY_PACKS = [
+  { label: 'Battle Through The Heavens / wuxia names (789 terms)', value: '7' },
+  {
+    label: 'Fantasy (5041; the site currently fills it with Pokemon terms)',
+    value: '12',
+  },
+  { label: 'Naruto • Bleach • One Piece (1388)', value: '1' },
+  { label: 'Pokemon (5041)', value: '5' },
+  { label: 'Honkai • Genshin (968)', value: '15' },
+  { label: 'Marvel (746)', value: '6' },
+  { label: 'Fairy Tail (639)', value: '2' },
+  { label: 'Detective Conan (451)', value: '11' },
+  { label: 'Harry Potter (347)', value: '9' },
+  { label: 'Prince of Tennis (225)', value: '3' },
+  { label: "Slam Dunk • Kuroko's Basketball (165)", value: '10' },
+  { label: 'Dragon Ball (144)', value: '4' },
+  { label: 'Demon Slayer (79)', value: '14' },
+  { label: 'Hunter x Hunter (79)', value: '13' },
+  { label: 'Food Wars (60)', value: '8' },
+];
+var GLOSSARY_PAGE = 200;
+var GLOSSARY_DAYS = 7;
+
 function isPlatformSlug(slug) {
   return /^(fq|qimao)-/.test(slug);
 }
@@ -194,7 +219,7 @@ function FictionZonePlugin() {
   this.name = 'Fiction Zone';
   this.icon = 'src/en/fictionzone/icon.png';
   this.site = SITE;
-  this.version = '2.1.0';
+  this.version = '2.2.0';
   // Each chapter is one small API call, so several can download at once.
   this.downloadConcurrency = 4;
   this.webStorageUtilized = true;
@@ -209,7 +234,19 @@ function FictionZonePlugin() {
           label: 'Arabic (Fiction Zone translates it with Google)',
           value: 'ar',
         },
+        {
+          label:
+            'Chinese original + glossary packs below (the app translates it straight to Arabic)',
+          value: 'zh',
+        },
       ],
+    },
+    glossaryPacks: {
+      value: ['7', '12'],
+      label:
+        'Fiction Zone glossary packs (used with "Chinese original"; first chapter after a change takes a few seconds)',
+      type: 'CheckboxGroup',
+      options: GLOSSARY_PACKS,
     },
     token: {
       value: '',
@@ -465,21 +502,118 @@ FictionZonePlugin.prototype.parseNovel = function (novelPath) {
 };
 
 FictionZonePlugin.prototype.omniLanguage = function () {
-  return storage.get('omniLanguage') === 'ar' ? 'ar' : 'en';
+  var language = storage.get('omniLanguage');
+  return language === 'ar' || language === 'zh' ? language : 'en';
 };
 
 // Query string for an Omniportal call, as the site itself sends it.
-FictionZonePlugin.prototype.omniQuery = function (source, key) {
+// `raw` asks for the untranslated Chinese text.
+FictionZonePlugin.prototype.omniQuery = function (source, key, raw) {
+  var language = this.omniLanguage();
+  var query = 'source_id=' + source + '&source_key=' + key;
+  if (raw) return query + '&translate=none';
   return (
-    'source_id=' +
-    source +
-    '&source_key=' +
-    key +
+    query +
     '&translate=' +
-    this.omniLanguage() +
+    (language === 'zh' ? 'en' : language) +
     '&engine=google-trans-v2'
   );
 };
+
+// All terms of one glossary pack, cached on the device for a week.
+FictionZonePlugin.prototype.glossaryPack = function (packId) {
+  var self = this;
+  var cacheKey = 'glossary_' + packId;
+  var cached = storage.get(cacheKey);
+  if (cached && cached.length) return Promise.resolve(cached);
+  var terms = [];
+  function page(n) {
+    return self
+      .api(
+        '/glossary/collections/' +
+          packId +
+          '/terms?page=' +
+          n +
+          '&page_size=' +
+          GLOSSARY_PAGE,
+      )
+      .then(function (data) {
+        return (data && data.terms) || [];
+      });
+  }
+  // Pages are fetched five at a time until one comes back short.
+  function from(n) {
+    var batch = [];
+    for (var i = 0; i < 5; i++) batch.push(page(n + i));
+    return Promise.all(batch).then(function (pages) {
+      var done = false;
+      pages.forEach(function (list) {
+        if (done) return;
+        list.forEach(function (t) {
+          if (t.is_enabled !== false && t.raw && t.translation) {
+            terms.push([t.raw, t.translation]);
+          }
+        });
+        if (list.length < GLOSSARY_PAGE) done = true;
+      });
+      if (!done && n < 60) return from(n + 5);
+      storage.set(
+        cacheKey,
+        terms,
+        Date.now() + GLOSSARY_DAYS * 24 * 60 * 60 * 1000,
+      );
+      return terms;
+    });
+  }
+  return from(1);
+};
+
+// The chosen packs merged, longest term first, so a full name is swapped
+// before the shorter words inside it. Shared by chapters downloading at once.
+FictionZonePlugin.prototype.glossary = function () {
+  var self = this;
+  var packs = storage.get('glossaryPacks');
+  if (!Array.isArray(packs)) packs = ['7', '12'];
+  var key = packs.join(',');
+  if (this.glossaryCache && this.glossaryCache.key === key) {
+    return this.glossaryCache.promise;
+  }
+  var promise = Promise.all(
+    packs.map(function (id) {
+      return self.glossaryPack(id).catch(function () {
+        return [];
+      });
+    }),
+  ).then(function (lists) {
+    var seen = {};
+    var merged = [];
+    lists.forEach(function (list) {
+      list.forEach(function (term) {
+        if (!seen[term[0]]) {
+          seen[term[0]] = true;
+          merged.push(term);
+        }
+      });
+    });
+    return merged.sort(function (a, b) {
+      return b[0].length - a[0].length;
+    });
+  });
+  this.glossaryCache = { key: key, promise: promise };
+  promise.catch(function () {
+    self.glossaryCache = null;
+  });
+  return promise;
+};
+
+function applyGlossary(text, terms) {
+  for (var i = 0; i < terms.length; i++) {
+    if (text.indexOf(terms[i][0]) >= 0) {
+      text = text.split(terms[i][0]).join(' ' + terms[i][1] + ' ');
+    }
+  }
+  return text;
+}
 
 FictionZonePlugin.prototype.omniChapters = function (novelPath) {
   var self = this;
@@ -553,10 +687,12 @@ FictionZonePlugin.prototype.parseChapter = function (chapterPath) {
   var omni = (parts[1] || '').match(/^omni:([a-z]+):(\d+)$/);
   var request;
   if (omni) {
+    var self = this;
     var chapterId = parts[0].split('/').pop();
+    var raw = this.omniLanguage() === 'zh';
     request = this.api(
       '/omniportal/chapters/content?' +
-        this.omniQuery(omni[1], omni[2]) +
+        this.omniQuery(omni[1], omni[2], raw) +
         '&chapter_id=' +
         chapterId,
       true,
@@ -568,7 +704,13 @@ FictionZonePlugin.prototype.parseChapter = function (chapterPath) {
           'Sign in to Fiction Zone from the WebView (globe icon) to read the full chapter.',
         );
       }
-      return reply.data;
+      if (!raw) return reply.data;
+      return self.glossary().then(function (terms) {
+        var data = reply.data || {};
+        return {
+          content: applyGlossary(String(data.content || ''), terms),
+        };
+      });
     });
   } else {
     request = this.api(parts[1], true);

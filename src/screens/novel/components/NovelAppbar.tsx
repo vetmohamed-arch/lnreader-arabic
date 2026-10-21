@@ -100,6 +100,7 @@ const NovelAppbar = ({
   deleteChapters,
   showEditInfoModal,
   downloadCustomChapterModal,
+  downloadChapterRangeModal,
   setCustomNovelCover,
   goBack,
   shareNovel,
@@ -116,6 +117,7 @@ const NovelAppbar = ({
   deleteChapters: () => void;
   showEditInfoModal: React.Dispatch<React.SetStateAction<boolean>>;
   downloadCustomChapterModal: () => void;
+  downloadChapterRangeModal: () => void;
   setCustomNovelCover: () => Promise<void>;
   goBack: () => void;
   shareNovel: () => void;
@@ -167,6 +169,10 @@ const NovelAppbar = ({
         onPress: () => downloadChapters(10),
       },
       {
+        label: getString('novelScreen.download.range'),
+        onPress: () => downloadChapterRangeModal(),
+      },
+      {
         label: getString('novelScreen.download.custom'),
         onPress: () => downloadCustomChapterModal(),
       },
@@ -183,7 +189,12 @@ const NovelAppbar = ({
         onPress: () => deleteChapters(),
       },
     ];
-  }, [deleteChapters, downloadChapters, downloadCustomChapterModal]);
+  }, [
+    deleteChapters,
+    downloadChapterRangeModal,
+    downloadChapters,
+    downloadCustomChapterModal,
+  ]);
 
   const extraMenuItems = useMemo(() => {
     const items = [];

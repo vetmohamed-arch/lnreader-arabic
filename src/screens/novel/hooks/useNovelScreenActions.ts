@@ -93,6 +93,30 @@ export const useNovelScreenActions = ({
     [clearSelection, downloadChapters, novel, selectedIds],
   );
 
+  /**
+   * Downloads chapters `from` to `to` (inclusive, to the end when `to` is
+   * missing). Chapters are matched by the number the source gives them, or by
+   * their place in the list when it gives none.
+   */
+  const downloadChapterRange = useCallback(
+    async (from: number, to?: number) => {
+      if (!novel) {
+        return;
+      }
+      const [low, high] =
+        to !== undefined && to < from ? [to, from] : [from, to ?? Infinity];
+      const ordered = await getNovelChaptersInOrder(novel.id);
+      const toDownload = ordered.filter((chapter, index) => {
+        const number = chapter.chapterNumber ?? index + 1;
+        return number >= low && number <= high && !chapter.isDownloaded;
+      });
+      if (toDownload.length > 0) {
+        downloadChapters(novel, toDownload);
+      }
+    },
+    [downloadChapters, novel],
+  );
+
   const deleteDownloadedChapters = useCallback(() => {
     deleteChapters(
       chapters
@@ -219,6 +243,7 @@ export const useNovelScreenActions = ({
   return {
     deleteDownloadedChapters,
     downloadAvailableChapters,
+    downloadChapterRange,
     downloadChapters,
     downloadFromSelected,
     selectionActions,

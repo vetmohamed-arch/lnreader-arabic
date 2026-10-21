@@ -12,6 +12,7 @@ import JumpToChapterModal from './components/JumpToChapterModal';
 import { Actionbar } from '../../components/Actionbar/Actionbar';
 import EditInfoModal from './components/EditInfoModal';
 import DownloadCustomChapterModal from './components/DownloadCustomChapterModal';
+import DownloadChapterRangeModal from './components/DownloadChapterRangeModal';
 import { useBoolean } from '@hooks';
 import NovelScreenLoading from './components/LoadingAnimation/NovelScreenLoading';
 import { NovelScreenProps } from '@navigators/types';
@@ -86,10 +87,12 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
     setTrue: openDlChapterModal,
     setFalse: closeDlChapterModal,
   } = useBoolean();
+  const rangeModal = useBoolean();
 
   const {
     deleteDownloadedChapters,
     downloadAvailableChapters,
+    downloadChapterRange,
     downloadChapters,
     downloadFromSelected,
     selectionActions,
@@ -159,6 +162,7 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
               showEditInfoModal={showEditInfoModal}
               setCustomNovelCover={setCustomNovelCover}
               downloadCustomChapterModal={openDlChapterModal}
+              downloadChapterRangeModal={rangeModal.setTrue}
               showJumpToChapterModal={showJumpToChapterModal}
               shareNovel={shareNovel}
               refreshNovel={onRefresh}
@@ -299,6 +303,14 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
                 novel={novel}
                 setNovel={setNovel}
                 theme={theme}
+              />
+              <DownloadChapterRangeModal
+                modalVisible={rangeModal.value}
+                hideModal={rangeModal.setFalse}
+                theme={theme}
+                downloadRange={(from, to) => {
+                  void downloadChapterRange(from, to);
+                }}
               />
               <DownloadCustomChapterModal
                 modalVisible={dlChapterModalVisible}

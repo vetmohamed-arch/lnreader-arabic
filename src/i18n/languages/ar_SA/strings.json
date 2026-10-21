@@ -587,6 +587,10 @@
     "download": {
       "custom": "Custom",
       "customAmount": "Download custom amount",
+      "range": "تحميل من فصل لفصل",
+      "rangeFrom": "من فصل",
+      "rangeTo": "لحد فصل",
+      "rangeToEnd": "الآخر",
       "fromHere": "تحميل الفصل ده واللي بعده",
       "upToHere": "تحميل الفصل ده واللي قبله",
       "delete": "Delete downloads",
