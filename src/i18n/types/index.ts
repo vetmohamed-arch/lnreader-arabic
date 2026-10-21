@@ -296,6 +296,8 @@ export interface StringMap {
   'common.saved': 'string';
   'common.search': 'string';
   'common.skipVersion': 'string';
+  'common.copyLink': 'string';
+  'common.updateLinkCopied': 'string';
   'common.searchFor': 'string';
   'common.searchResults': 'string';
   'common.settings': 'string';
