@@ -387,6 +387,7 @@
     "downloadsLower": "downloads",
     "noDownloads": "No downloads",
     "pluginNotFound": "Plugin not found!",
+    "translating": "Translating downloaded chapters…",
     "removeDownloadsWarning": "Are you sure? All downloaded chapters will be deleted."
   },
   "taskQueue": {
