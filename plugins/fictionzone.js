@@ -194,11 +194,23 @@ function FictionZonePlugin() {
   this.name = 'Fiction Zone';
   this.icon = 'src/en/fictionzone/icon.png';
   this.site = SITE;
-  this.version = '2.0.4';
+  this.version = '2.1.0';
   // Each chapter is one small API call, so several can download at once.
   this.downloadConcurrency = 4;
   this.webStorageUtilized = true;
   this.pluginSettings = {
+    omniLanguage: {
+      value: 'en',
+      label: 'Omniportal (Chinese) novels language',
+      type: 'Select',
+      options: [
+        { label: 'English (the app translates it with Edge)', value: 'en' },
+        {
+          label: 'Arabic (Fiction Zone translates it with Google)',
+          value: 'ar',
+        },
+      ],
+    },
     token: {
       value: '',
       label:
@@ -258,26 +270,26 @@ FictionZonePlugin.prototype.token = function () {
   return findToken(local, 0) || findToken(webSessionStorage.get(), 0);
 };
 
-FictionZonePlugin.prototype.api = function (path, withAuth) {
+FictionZonePlugin.prototype.api = function (path, withAuth, full) {
   var self = this;
-  if (!withAuth || !this.token()) return this.request(path, false);
+  if (!withAuth || !this.token()) return this.request(path, false, full);
   // A stale or rejected login must never break reading the public library.
-  return this.request(path, true).catch(function () {
-    return self.request(path, false);
+  return this.request(path, true, full).catch(function () {
+    return self.request(path, false, full);
   });
 };
 
 // One retry: a dropped or stalled connection is the usual reason a chapter
 // download fails, and it rarely happens twice in a row.
-FictionZonePlugin.prototype.request = function (path, withAuth) {
+FictionZonePlugin.prototype.request = function (path, withAuth, full) {
   var self = this;
-  return this.send(path, withAuth).catch(function (error) {
+  return this.send(path, withAuth, full).catch(function (error) {
     if (error && error.fzReply) throw error;
-    return self.send(path, withAuth);
+    return self.send(path, withAuth, full);
   });
 };
 
-FictionZonePlugin.prototype.send = function (path, withAuth) {
+FictionZonePlugin.prototype.send = function (path, withAuth, full) {
   var headers = [['content-type', 'application/json']];
   var token = withAuth ? this.token() : undefined;
   if (token) headers.push(['authorization', 'Bearer ' + token]);
@@ -326,7 +338,7 @@ FictionZonePlugin.prototype.send = function (path, withAuth) {
         failure.fzReply = true; // the site answered: retrying won't help
         throw failure;
       }
-      return json.data;
+      return full ? json : json.data;
     });
 };
 
@@ -452,7 +464,47 @@ FictionZonePlugin.prototype.parseNovel = function (novelPath) {
   });
 };
 
+FictionZonePlugin.prototype.omniLanguage = function () {
+  return storage.get('omniLanguage') === 'ar' ? 'ar' : 'en';
+};
+
+// Query string for an Omniportal call, as the site itself sends it.
+FictionZonePlugin.prototype.omniQuery = function (source, key) {
+  return (
+    'source_id=' +
+    source +
+    '&source_key=' +
+    key +
+    '&translate=' +
+    this.omniLanguage() +
+    '&engine=google-trans-v2'
+  );
+};
+
+FictionZonePlugin.prototype.omniChapters = function (novelPath) {
+  var self = this;
+  var m = novelPath.match(/^novel\/(fq|qimao)-(\d+)/);
+  return this.api(
+    '/omniportal/novels/chapters?' + this.omniQuery(m[1], m[2]),
+    true,
+  ).then(function (data) {
+    return (data.chapters || []).map(function (c) {
+      var date = c.published_date ? new Date(c.published_date) : null;
+      return {
+        name: c.title,
+        chapterNumber: c.chapter_number,
+        releaseTime:
+          date && !isNaN(date.getTime()) ? date.toISOString() : undefined,
+        path: novelPath + '/' + c.chapter_id + '|omni:' + m[1] + ':' + m[2],
+      };
+    });
+  });
+};
+
 FictionZonePlugin.prototype.chapters = function (novelId, novelPath) {
+  if (isPlatformSlug(novelPath.replace(/^novel\//, ''))) {
+    return this.omniChapters(novelPath);
+  }
   return this.api('/platform/chapter-lists?novel_id=' + novelId, true).then(
     function (data) {
       return (data.chapters || []).map(function (c) {
@@ -485,14 +537,43 @@ FictionZonePlugin.prototype.parsePage = function (novelPath) {
     '/platform/novel-details?slug=' + encodeURIComponent(slug),
     true,
   ).then(function (d) {
-    return self.chapters(d.id, novelPath).then(function (chapters) {
-      return { chapters: chapters };
-    });
+    return self
+      .chapters(d.id, novelPath)
+      .catch(function () {
+        return [];
+      })
+      .then(function (chapters) {
+        return { chapters: chapters };
+      });
   });
 };
 
 FictionZonePlugin.prototype.parseChapter = function (chapterPath) {
-  return this.api(chapterPath.split('|')[1], true).then(function (data) {
+  var parts = chapterPath.split('|');
+  var omni = (parts[1] || '').match(/^omni:([a-z]+):(\d+)$/);
+  var request;
+  if (omni) {
+    var chapterId = parts[0].split('/').pop();
+    request = this.api(
+      '/omniportal/chapters/content?' +
+        this.omniQuery(omni[1], omni[2]) +
+        '&chapter_id=' +
+        chapterId,
+      true,
+      true,
+    ).then(function (reply) {
+      // Signed out, the site sends only the start of the chapter.
+      if (/login/i.test(reply.message || '')) {
+        throw new Error(
+          'Sign in to Fiction Zone from the WebView (globe icon) to read the full chapter.',
+        );
+      }
+      return reply.data;
+    });
+  } else {
+    request = this.api(parts[1], true);
+  }
+  return request.then(function (data) {
     var text = String(data.content || '').replace(/\r\n?/g, '\n');
     if (/<(p|br|div)[\s>/]/i.test(text)) return text;
     return text
