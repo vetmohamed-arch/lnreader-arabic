@@ -5,6 +5,7 @@ import {
   getChapterTranslation,
   renderTranslation,
   translateChapterParts,
+  isArabicText,
 } from '../chapterTranslation';
 import { applyGlossary, glossaryKey, parseGlossary } from '../glossary';
 import { BUILTIN_GLOSSARY } from '../builtinGlossary';
@@ -173,5 +174,21 @@ describe('detectSource', () => {
     mockFetch.mockImplementation(edgeEcho);
     await translateChapterParts('<p>Gather Qi now</p>', 'Qi = تشي');
     expect(mockFetch.mock.calls[0][0]).toContain('from=en&');
+  });
+});
+
+describe('isArabicText', () => {
+  it('recognises a chapter that is already Arabic', () => {
+    expect(
+      isArabicText('<h1>الفصل الأول</h1><p>كانت <b>إلباف</b> تحترق.</p>'),
+    ).toBe(true);
+  });
+
+  it('leaves English and mixed chapters for translation', () => {
+    expect(isArabicText('<p>Gather Qi now</p>')).toBe(false);
+    expect(isArabicText('<p>Lin Feng = لين فنغ walked into the hall</p>')).toBe(
+      false,
+    );
+    expect(isArabicText('<p>   </p>')).toBe(false);
   });
 });

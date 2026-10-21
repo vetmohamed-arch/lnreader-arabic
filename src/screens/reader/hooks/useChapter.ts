@@ -19,6 +19,7 @@ import { NOVEL_STORAGE } from '@utils/Storages';
 import {
   effectiveGlossary,
   getChapterTranslation,
+  isArabicText,
   renderTranslation,
 } from '@services/translate/chapterTranslation';
 import {
@@ -256,7 +257,7 @@ export default function useChapter(
           chapterTextCache.remove(chap.id);
           return sanitized;
         }
-        return translateRef.current.enabled
+        return translateRef.current.enabled && !isArabicText(sanitized)
           ? loadTranslatedHtml(chap, sanitized)
           : sanitized;
       });

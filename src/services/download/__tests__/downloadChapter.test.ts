@@ -45,6 +45,7 @@ jest.mock('@hooks/persisted/useSettings', () => ({
 jest.mock('@services/translate/chapterTranslation', () => ({
   getTranslationSettings: () => ({ translateOnDownload: true, glossary: '' }),
   getChapterTranslation: () => mockTranslation(),
+  isArabicText: () => false,
 }));
 jest.mock('@screens/reader/utils/sanitizeChapterText', () => ({
   sanitizeChapterText: (_p: string, _n: string, _c: string, html: string) =>

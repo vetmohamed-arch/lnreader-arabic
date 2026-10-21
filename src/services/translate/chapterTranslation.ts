@@ -114,6 +114,17 @@ export const detectSource = (texts: string[]) => {
   return letters && latin / letters > 0.8 ? 'en' : '';
 };
 
+/** True when a chapter is already Arabic, so translating it would be wasted. */
+export const isArabicText = (html: string) => {
+  const text = html.replace(/<[^>]*>/g, ' ');
+  const arabic = text.match(/[\u0600-\u06FF]/g)?.length ?? 0;
+  const letters =
+    text.match(
+      /[A-Za-z\u00C0-\u024F\u0600-\u06FF\u3040-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF\u0400-\u04FF]/g,
+    )?.length ?? 0;
+  return letters > 0 && arabic / letters > 0.8;
+};
+
 export const translateChapterParts = async (
   html: string,
   glossary: string,

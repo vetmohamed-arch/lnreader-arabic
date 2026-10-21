@@ -20,6 +20,7 @@ import { parseDownloadCheckpoint } from './downloadCheckpoint';
 import {
   getChapterTranslation,
   getTranslationSettings,
+  isArabicText,
 } from '@services/translate/chapterTranslation';
 import { sanitizeChapterText } from '@screens/reader/utils/sanitizeChapterText';
 
@@ -84,9 +85,16 @@ const translateDownloadedChapter = async (
   const { translateOnDownload, glossary } = getTranslationSettings();
   if (!translateOnDownload) return;
   try {
+    const text = sanitizeChapterText(
+      novel.pluginId,
+      novel.name,
+      chapter.name,
+      html,
+    );
+    if (isArabicText(text)) return;
     await getChapterTranslation(
       { pluginId: novel.pluginId, novelId: novel.id, chapterId: chapter.id },
-      sanitizeChapterText(novel.pluginId, novel.name, chapter.name, html),
+      text,
       glossary,
     );
   } catch {}
