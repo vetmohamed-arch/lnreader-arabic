@@ -607,10 +607,22 @@ export const getPageChapterIds = async (
     .select({ id: chapterSchema.id })
     .from(chapterSchema)
     .where(and(...conditions))
+    .orderBy(asc(chapterSchema.position))
     .all();
 
   return rows.map(chapter => chapter.id);
 };
+
+/** Every chapter of a novel from first to last, across all pages. */
+export const getNovelChaptersInOrder = async (
+  novelId: number,
+): Promise<ChapterInfo[]> =>
+  dbManager
+    .select()
+    .from(chapterSchema)
+    .where(eq(chapterSchema.novelId, novelId))
+    .orderBy(asc(castInt(chapterSchema.page)), asc(chapterSchema.position))
+    .all();
 
 export const getChaptersByIds = async (
   chapterIds: number[],

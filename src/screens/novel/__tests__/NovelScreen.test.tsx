@@ -152,7 +152,11 @@ jest.mock('../../../components/Actionbar/Actionbar', () => {
 jest.mock('@components', () => {
   const React = require('react');
   const { Pressable, Text, View } = require('react-native');
+  const Menu = ({ anchor }: { anchor: React.ReactNode }) =>
+    React.createElement(React.Fragment, null, anchor);
+  Menu.Item = () => null;
   return {
+    Menu,
     SafeAreaView: ({ children }: { children: React.ReactNode }) =>
       React.createElement(React.Fragment, null, children),
     EmptyView: ({

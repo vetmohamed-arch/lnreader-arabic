@@ -19,7 +19,7 @@ import { getString } from '@i18n/translations';
 import NovelAppbar from './components/NovelAppbar';
 import NovelScreenList from './components/NovelScreenList';
 import { ThemeColors } from '@theme/types';
-import { EmptyView, SafeAreaView } from '@components';
+import { EmptyView, Menu, SafeAreaView } from '@components';
 import { useNovelActions, useNovelValue } from './NovelContext';
 import { LegendListRef } from '@legendapp/list/react-native';
 import { useCustomNovelCover } from './hooks/useCustomNovelCover';
@@ -64,7 +64,9 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
     setSelectedIds: setSelected,
     clearSelection,
     selectAll,
+    selectRange,
   } = useChapterSelection(chapters, getAllChapterIds);
+  const rangeMenu = useBoolean();
   const [editInfoModal, showEditInfoModal] = useState(false);
 
   const chapterListRef = useRef<LegendListRef | null>(null);
@@ -89,6 +91,7 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
     deleteDownloadedChapters,
     downloadAvailableChapters,
     downloadChapters,
+    downloadFromSelected,
     selectionActions,
     shareNovel,
   } = useNovelScreenActions({
@@ -121,6 +124,10 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
   const titleStyle = useMemo(
     () => ({ color: theme.onSurface }),
     [theme.onSurface],
+  );
+  const menuContentStyle = useMemo(
+    () => ({ backgroundColor: theme.surface2 }),
+    [theme.surface2],
   );
   const snackbarAction = useMemo(
     () => ({
@@ -177,6 +184,44 @@ const Novel = ({ route, navigation }: NovelScreenProps) => {
                 title={`${selected.length}`}
                 titleStyle={titleStyle}
               />
+              {selected.length > 1 ? (
+                <Appbar.Action
+                  icon="arrow-expand-vertical"
+                  iconColor={theme.onBackground}
+                  onPress={selectRange}
+                />
+              ) : null}
+              {selected.length === 1 && !novel?.isLocal ? (
+                <Menu
+                  visible={rangeMenu.value}
+                  onDismiss={rangeMenu.setFalse}
+                  contentStyle={menuContentStyle}
+                  anchor={
+                    <Appbar.Action
+                      icon="download-multiple"
+                      iconColor={theme.onBackground}
+                      onPress={rangeMenu.setTrue}
+                    />
+                  }
+                >
+                  <Menu.Item
+                    title={getString('novelScreen.download.fromHere')}
+                    titleStyle={titleStyle}
+                    onPress={() => {
+                      rangeMenu.setFalse();
+                      void downloadFromSelected('after');
+                    }}
+                  />
+                  <Menu.Item
+                    title={getString('novelScreen.download.upToHere')}
+                    titleStyle={titleStyle}
+                    onPress={() => {
+                      rangeMenu.setFalse();
+                      void downloadFromSelected('before');
+                    }}
+                  />
+                </Menu>
+              ) : null}
               <Appbar.Action
                 icon="select-all"
                 iconColor={theme.onBackground}

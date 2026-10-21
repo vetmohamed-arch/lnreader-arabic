@@ -45,4 +45,20 @@ describe('useChapterSelection', () => {
 
     expect(result.current.selectedIds).toEqual([1]);
   });
+
+  it('selects every chapter between the first and last picked chapters', async () => {
+    const getAllChapterIds = jest.fn().mockResolvedValue([10, 11, 12, 13, 14]);
+    const { result } = renderHook(() =>
+      useChapterSelection(chapters, getAllChapterIds),
+    );
+
+    act(() => {
+      result.current.setSelectedIds([13, 11]);
+    });
+    await act(async () => {
+      await result.current.selectRange();
+    });
+
+    expect([...result.current.selectedIds].sort()).toEqual([11, 12, 13]);
+  });
 });
