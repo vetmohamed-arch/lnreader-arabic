@@ -53,6 +53,10 @@ type WebViewReaderProps = {
   searchTextRef: React.MutableRefObject<string>;
 };
 
+// Plugin repositories spell languages natively, e.g. '\u200eالعربية'.
+const isRtlLanguage = (lang?: string) =>
+  /Arabic|Hebrew|العربية|עברית/.test(lang ?? '');
+
 const onLogMessage = (payload: { nativeEvent: { data: string } }) => {
   const dataPayload = JSON.parse(payload.nativeEvent.data);
   if (dataPayload) {
@@ -303,7 +307,7 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({
       mmkvListener.remove();
     };
   }, [updateTtsSettings, webViewRef]);
-  const isRTL = plugin?.lang === 'Arabic' || plugin?.lang === 'Hebrew';
+  const isRTL = isRtlLanguage(plugin?.lang);
   const readerDir = isRTL ? 'rtl' : 'ltr';
 
   /**
