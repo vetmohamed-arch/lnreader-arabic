@@ -22,7 +22,9 @@ function FictionEmpirePlugin() {
   this.name = 'Fiction Empire';
   this.icon = 'src/ar/fictionempire/icon.png';
   this.site = SITE;
-  this.version = '1.0.0';
+  // Same spelling as the app's language filter, or the plugin stays hidden.
+  this.lang = '\u200eالعربية';
+  this.version = '1.0.1';
   this.downloadConcurrency = 4;
   this.indexCache = undefined;
 }

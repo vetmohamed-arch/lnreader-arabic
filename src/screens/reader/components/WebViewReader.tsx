@@ -303,7 +303,11 @@ const WebViewReader: React.FC<WebViewReaderProps> = ({
       mmkvListener.remove();
     };
   }, [updateTtsSettings, webViewRef]);
-  const isRTL = plugin?.lang === 'Arabic' || plugin?.lang === 'Hebrew';
+  // Plugin repositories spell languages natively, e.g. '\u200eالعربية'.
+  const isRTL =
+    plugin?.lang === 'Arabic' ||
+    plugin?.lang === '\u200eالعربية' ||
+    plugin?.lang === 'Hebrew';
   const readerDir = isRTL ? 'rtl' : 'ltr';
 
   /**
