@@ -37,6 +37,29 @@ export const useChapterSelection = (
       setSelectedIdsState(chapterIds);
     }
   }, [getAllChapterIds]);
+  // Fills the gap between the first and last selected chapters, so picking
+  // two chapters selects everything from one to the other.
+  const selectRange = useCallback(async () => {
+    const requestVersion = ++selectionVersion.current;
+    const chapterIds = await getAllChapterIds();
+    if (selectionVersion.current !== requestVersion) {
+      return;
+    }
+    setSelectedIdsState(current => {
+      const picked = new Set(current);
+      const indexes = chapterIds
+        .map((id, index) => (picked.has(id) ? index : -1))
+        .filter(index => index >= 0);
+      if (indexes.length < 2) {
+        return current;
+      }
+      const range = chapterIds.slice(
+        Math.min(...indexes),
+        Math.max(...indexes) + 1,
+      );
+      return Array.from(new Set([...current, ...range]));
+    });
+  }, [getAllChapterIds]);
 
   return {
     selectedIds,
@@ -44,5 +67,6 @@ export const useChapterSelection = (
     setSelectedIds,
     clearSelection,
     selectAll,
+    selectRange,
   };
 };

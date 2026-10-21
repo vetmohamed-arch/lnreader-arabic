@@ -6,6 +6,7 @@ import {
   getAllUndownloadedAndUnreadChapters,
   getAllUndownloadedChapters,
   getChaptersByIds,
+  getNovelChaptersInOrder,
 } from '@database/queries/ChapterQueries';
 import { ChapterInfo, NovelInfo } from '@database/types';
 import { useDownload } from '@hooks/persisted';
@@ -66,6 +67,30 @@ export const useNovelScreenActions = ({
       }
     },
     [chapters, downloadChapters, novel],
+  );
+
+  /** Downloads the selected chapter together with every chapter after or before it. */
+  const downloadFromSelected = useCallback(
+    async (direction: 'after' | 'before') => {
+      if (!novel || selectedIds.length !== 1) {
+        return;
+      }
+      const ordered = await getNovelChaptersInOrder(novel.id);
+      const index = ordered.findIndex(chapter => chapter.id === selectedIds[0]);
+      if (index < 0) {
+        return;
+      }
+      const range =
+        direction === 'after'
+          ? ordered.slice(index)
+          : ordered.slice(0, index + 1);
+      const toDownload = range.filter(chapter => !chapter.isDownloaded);
+      clearSelection();
+      if (toDownload.length > 0) {
+        downloadChapters(novel, toDownload);
+      }
+    },
+    [clearSelection, downloadChapters, novel, selectedIds],
   );
 
   const deleteDownloadedChapters = useCallback(() => {
@@ -195,6 +220,7 @@ export const useNovelScreenActions = ({
     deleteDownloadedChapters,
     downloadAvailableChapters,
     downloadChapters,
+    downloadFromSelected,
     selectionActions,
     shareNovel,
   };

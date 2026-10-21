@@ -592,6 +592,8 @@
     "download": {
       "custom": "Custom",
       "customAmount": "Download custom amount",
+      "fromHere": "Download this chapter and the ones after it",
+      "upToHere": "Download this chapter and the ones before it",
       "delete": "Delete downloads",
       "next": "Next chapter",
       "next10": "Next 10 chapters",

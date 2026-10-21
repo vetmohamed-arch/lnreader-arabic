@@ -587,6 +587,8 @@
     "download": {
       "custom": "Custom",
       "customAmount": "Download custom amount",
+      "fromHere": "تحميل الفصل ده واللي بعده",
+      "upToHere": "تحميل الفصل ده واللي قبله",
       "delete": "Delete downloads",
       "next": "Next chapter",
       "next10": "Next 10 chapters",

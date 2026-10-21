@@ -502,6 +502,8 @@ export interface StringMap {
   'novelScreen.deletedAllDownloads': 'string';
   'novelScreen.download.custom': 'string';
   'novelScreen.download.customAmount': 'string';
+  'novelScreen.download.fromHere': 'string';
+  'novelScreen.download.upToHere': 'string';
   'novelScreen.download.delete': 'string';
   'novelScreen.download.next': 'string';
   'novelScreen.download.next10': 'string';
