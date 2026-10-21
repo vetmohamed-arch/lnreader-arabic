@@ -92,7 +92,14 @@ const translateDownloadedChapter = async (
   } catch {}
 };
 
-const downloadChapter = async (chapterId: number) => {
+/**
+ * Downloads one chapter. Returns the translation work for it, if any, so the
+ * caller can run it without holding up the next download.
+ */
+const downloadChapter = async (
+  chapterId: number,
+  cooldown: boolean,
+): Promise<(() => Promise<void>) | undefined> => {
   const chapter = await getChapter(chapterId);
   if (!chapter) {
     throw new Error('Chapter not found with id: ' + chapterId);
@@ -124,15 +131,18 @@ const downloadChapter = async (chapterId: number) => {
         .run();
     });
 
-    await translateDownloadedChapter(savedHtml, novel, chapter);
-
-    await sleep(getChapterDownloadCooldownMs());
+    if (cooldown) {
+      await sleep(getChapterDownloadCooldownMs());
+    }
+    return () => translateDownloadedChapter(savedHtml, novel, chapter);
   } else {
     throw new Error(getString('downloadScreen.chapterEmptyOrScrapeError'));
   }
 };
 
 const MAX_DOWNLOAD_CONCURRENCY = 5;
+/** Chapters translated at once while downloading; more trips Edge's limits. */
+const TRANSLATE_CONCURRENCY = 2;
 
 const getDownloadConcurrency = async (chapterId: number) => {
   const chapter = await getChapter(chapterId);
@@ -141,6 +151,41 @@ const getDownloadConcurrency = async (chapterId: number) => {
   return typeof requested === 'number' && requested >= 1
     ? Math.min(Math.floor(requested), MAX_DOWNLOAD_CONCURRENCY)
     : 1;
+};
+
+/** Runs queued jobs a few at a time; `drain` waits for all of them. */
+const createQueue = (limit: number) => {
+  const waiting: (() => Promise<void>)[] = [];
+  const idle: (() => void)[] = [];
+  let running = 0;
+  const next = () => {
+    while (running < limit && waiting.length) {
+      const job = waiting.shift()!;
+      running++;
+      job()
+        .catch(() => {})
+        .finally(() => {
+          running--;
+          next();
+        });
+    }
+    if (!running && !waiting.length) {
+      idle.splice(0).forEach(resolve => resolve());
+    }
+  };
+  return {
+    push: (job: () => Promise<void>) => {
+      waiting.push(job);
+      next();
+    },
+    get pending() {
+      return running + waiting.length;
+    },
+    drain: () =>
+      running || waiting.length
+        ? new Promise<void>(resolve => idle.push(resolve))
+        : Promise.resolve(),
+  };
 };
 
 export const downloadChapters = async (
@@ -161,36 +206,62 @@ export const downloadChapters = async (
   );
   const failures = [...checkpoint.failures];
   const concurrency = await getDownloadConcurrency(chapters[0].chapterId);
+  // Plugins that ask for parallel downloads talk to an API, not pages, so
+  // they skip the pause meant to spare scraped sites.
+  const cooldown = concurrency === 1;
+  const translations = createQueue(TRANSLATE_CONCURRENCY);
 
-  for (
-    let index = checkpoint.nextIndex;
-    index < chapters.length;
-    index += concurrency
-  ) {
-    const batch = chapters.slice(index, index + concurrency);
+  // Each slot takes the next chapter as soon as its last one is done, so one
+  // slow chapter no longer holds up the others.
+  const done = new Set<number>();
+  let nextIndex = checkpoint.nextIndex;
+  let finishedUpTo = checkpoint.nextIndex;
+  let completed = checkpoint.nextIndex;
+
+  const worker = async () => {
+    while (nextIndex < chapters.length) {
+      const index = nextIndex++;
+      const chapter = chapters[index];
+      setMeta(meta => ({
+        ...meta,
+        isRunning: true,
+        progress: completed / chapters.length,
+        progressText: `${completed + 1}/${chapters.length} · ${
+          chapter.chapterName
+        }`,
+      }));
+      try {
+        const translate = await downloadChapter(chapter.chapterId, cooldown);
+        if (translate) translations.push(translate);
+      } catch (error) {
+        failures.push(
+          `${chapter.chapterName}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+      completed++;
+      done.add(index);
+      while (done.has(finishedUpTo)) {
+        done.delete(finishedUpTo);
+        finishedUpTo++;
+      }
+      await context.updateCheckpoint(
+        JSON.stringify({ nextIndex: finishedUpTo, failures }),
+      );
+    }
+  };
+
+  await Promise.all(Array.from({ length: concurrency }, worker));
+
+  if (translations.pending) {
     setMeta(meta => ({
       ...meta,
       isRunning: true,
-      progress: index / chapters.length,
-      progressText: `${index + 1}/${chapters.length} · ${batch[0].chapterName}`,
+      progress: 1,
+      progressText: getString('downloadScreen.translating'),
     }));
-
-    const results = await Promise.all(
-      batch.map(chapter =>
-        downloadChapter(chapter.chapterId).then(
-          () => undefined,
-          (error: unknown) =>
-            `${chapter.chapterName}: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-        ),
-      ),
-    );
-    results.forEach(failure => failure && failures.push(failure));
-
-    await context.updateCheckpoint(
-      JSON.stringify({ nextIndex: index + batch.length, failures }),
-    );
+    await translations.drain();
   }
 
   setMeta(meta => ({

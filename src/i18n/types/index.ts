@@ -336,6 +336,7 @@ export interface StringMap {
   'downloadScreen.downloadsLower': 'string';
   'downloadScreen.noDownloads': 'string';
   'downloadScreen.pluginNotFound': 'string';
+  'downloadScreen.translating': 'string';
   'downloadScreen.removeDownloadsWarning': 'string';
   'taskQueue.cancelTaskAction': 'string';
   'taskQueue.cancelTaskTitle': 'string';
