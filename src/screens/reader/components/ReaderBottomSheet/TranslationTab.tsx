@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useMMKVString } from 'react-native-mmkv';
 import { StyleSheet, Text, View } from 'react-native';
 import {
   BottomSheetScrollView,
@@ -12,6 +13,7 @@ import { showToast } from '@utils/showToast';
 import ReaderSheetPreferenceItem from './ReaderSheetPreferenceItem';
 import { BUILTIN_GLOSSARY } from '@services/translate/builtinGlossary';
 import { parseGlossary } from '@services/translate/glossary';
+import { GEMINI_LAST_ERROR } from '@services/translate/chapterTranslation';
 
 const BUILTIN_TERM_COUNT = parseGlossary(BUILTIN_GLOSSARY).length;
 
@@ -23,9 +25,35 @@ const TranslationTab: React.FC = () => {
     translateOnDownload,
     translationGlossary,
     translationBuiltinGlossary,
+    translationLearnedGlossary,
+    translationEngine,
+    geminiApiKey,
+    geminiLearnTerms,
     setChapterGeneralSettings,
   } = useChapterGeneralSettings();
   const [glossary, setGlossary] = useState(translationGlossary ?? '');
+  const [apiKey, setApiKey] = useState(geminiApiKey ?? '');
+  const [learned, setLearned] = useState('');
+  const [learnedEdited, setLearnedEdited] = useState(false);
+  const [geminiError] = useMMKVString(GEMINI_LAST_ERROR);
+  const useGemini = translationEngine === 'gemini';
+
+  // Gemini keeps adding terms while this is open; show them unless the user
+  // is in the middle of editing the list.
+  const shownLearned = learnedEdited
+    ? learned
+    : translationLearnedGlossary ?? '';
+
+  const saveApiKey = () => {
+    setChapterGeneralSettings({ geminiApiKey: apiKey.trim() });
+    showToast(getString('readerScreen.translation.geminiKeySaved'));
+  };
+
+  const saveLearned = () => {
+    setChapterGeneralSettings({ translationLearnedGlossary: learned });
+    setLearnedEdited(false);
+    showToast(getString('readerScreen.translation.saved'));
+  };
 
   const saveGlossary = () => {
     setChapterGeneralSettings({ translationGlossary: glossary });
@@ -67,6 +95,65 @@ const TranslationTab: React.FC = () => {
         }
         theme={theme}
       />
+      <List.SubHeader theme={theme}>
+        {getString('readerScreen.translation.gemini')}
+      </List.SubHeader>
+      <ReaderSheetPreferenceItem
+        label={getString('readerScreen.translation.gemini')}
+        description={getString('readerScreen.translation.geminiDescription')}
+        value={useGemini}
+        onPress={() =>
+          setChapterGeneralSettings({
+            translationEngine: useGemini ? 'edge' : 'gemini',
+          })
+        }
+        theme={theme}
+      />
+      {useGemini ? (
+        <>
+          <View style={styles.glossary}>
+            <BottomSheetTextInput
+              value={apiKey}
+              onChangeText={setApiKey}
+              placeholder={getString('readerScreen.translation.geminiKey')}
+              placeholderTextColor={theme.onSurfaceVariant}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={[
+                styles.keyInput,
+                { color: theme.onSurface, borderColor: theme.outline },
+              ]}
+            />
+            <Button
+              mode="contained"
+              title={getString('readerScreen.translation.geminiKeySave')}
+              disabled={apiKey.trim() === (geminiApiKey ?? '')}
+              onPress={saveApiKey}
+            />
+            {geminiError ? (
+              <Text style={[styles.description, { color: theme.error }]}>
+                {getString('readerScreen.translation.geminiLastError', {
+                  error: geminiError,
+                })}
+              </Text>
+            ) : null}
+          </View>
+          <ReaderSheetPreferenceItem
+            label={getString('readerScreen.translation.geminiLearn')}
+            description={getString(
+              'readerScreen.translation.geminiLearnDescription',
+            )}
+            value={geminiLearnTerms !== false}
+            onPress={() =>
+              setChapterGeneralSettings({
+                geminiLearnTerms: geminiLearnTerms === false,
+              })
+            }
+            theme={theme}
+          />
+        </>
+      ) : null}
       <List.SubHeader theme={theme}>
         {getString('readerScreen.translation.glossary')}
       </List.SubHeader>
@@ -110,6 +197,42 @@ const TranslationTab: React.FC = () => {
           onPress={saveGlossary}
         />
       </View>
+      {shownLearned || useGemini ? (
+        <>
+          <List.SubHeader theme={theme}>
+            {getString('readerScreen.translation.learned', {
+              count: parseGlossary(shownLearned).length,
+            })}
+          </List.SubHeader>
+          <View style={styles.glossary}>
+            <Text
+              style={[styles.description, { color: theme.onSurfaceVariant }]}
+            >
+              {getString('readerScreen.translation.learnedDescription')}
+            </Text>
+            <BottomSheetTextInput
+              multiline
+              value={shownLearned}
+              onChangeText={text => {
+                setLearned(text);
+                setLearnedEdited(true);
+              }}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={[
+                styles.input,
+                { color: theme.onSurface, borderColor: theme.outline },
+              ]}
+            />
+            <Button
+              mode="contained"
+              title={getString('readerScreen.translation.learnedSave')}
+              disabled={!learnedEdited}
+              onPress={saveLearned}
+            />
+          </View>
+        </>
+      ) : null}
     </BottomSheetScrollView>
   );
 };
@@ -120,6 +243,12 @@ const styles = StyleSheet.create({
   container: { paddingBottom: 40 },
   glossary: { gap: 12, paddingHorizontal: 16 },
   description: { fontSize: 12 },
+  keyInput: {
+    borderRadius: 8,
+    borderWidth: 1,
+    fontSize: 15,
+    padding: 12,
+  },
   input: {
     borderRadius: 8,
     borderWidth: 1,

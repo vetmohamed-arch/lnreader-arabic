@@ -623,6 +623,17 @@ export interface StringMap {
   'readerScreen.translation.save': 'string';
   'readerScreen.translation.saved': 'string';
   'readerScreen.translation.engine': 'string';
+  'readerScreen.translation.gemini': 'string';
+  'readerScreen.translation.geminiDescription': 'string';
+  'readerScreen.translation.geminiKey': 'string';
+  'readerScreen.translation.geminiKeySave': 'string';
+  'readerScreen.translation.geminiKeySaved': 'string';
+  'readerScreen.translation.geminiLearn': 'string';
+  'readerScreen.translation.geminiLearnDescription': 'string';
+  'readerScreen.translation.geminiLastError': 'string';
+  'readerScreen.translation.learned': 'string';
+  'readerScreen.translation.learnedDescription': 'string';
+  'readerScreen.translation.learnedSave': 'string';
   'readerSettings.autoScrollInterval': 'string';
   'readerSettings.autoScrollOffset': 'string';
   'readerSettings.backgroundColor': 'string';

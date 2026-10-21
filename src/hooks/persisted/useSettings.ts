@@ -203,6 +203,14 @@ export interface ChapterGeneralSettings {
   translationGlossary: string;
   /** Also apply the bundled cultivation-term glossary. */
   translationBuiltinGlossary: boolean;
+  /** Terms Gemini translated, used by every translator after the user's own. */
+  translationLearnedGlossary?: string;
+  translationEngine?: 'edge' | 'gemini';
+  /** The user's own Google AI Studio key; stays on the device. */
+  geminiApiKey?: string;
+  geminiModel?: string;
+  /** Save the names and terms Gemini translates to the learned glossary. */
+  geminiLearnTerms?: boolean;
 }
 
 export interface ReaderTheme {
