@@ -137,7 +137,10 @@ jobs:
           echo "PRERELEASE_VERSION_CODE=$((base_version_code + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
           echo "PRERELEASE_VERSION_NAME=${base_version_name}-pre.r${GITHUB_RUN_NUMBER}.${short_sha}" >> "$GITHUB_ENV"
           echo "PRERELEASE_ARTIFACT_NAME=LNReader-${short_sha}" >> "$GITHUB_ENV"
-          echo "PRERELEASE_APK_NAME=LNReader-r${GITHUB_RUN_NUMBER}-${short_sha}.apk" >> "$GITHUB_ENV"
+          # Only 64-bit ARM phones are targeted: the APK is about a third of
+          # the universal size, so updates download much faster. The suffix
+          # lets the in-app updater match it to the phone's ABI.
+          echo "PRERELEASE_APK_NAME=LNReader-r${GITHUB_RUN_NUMBER}-${short_sha}-arm64-v8a.apk" >> "$GITHUB_ENV"
 
       - name: Build Preview APK
         working-directory: android
@@ -147,6 +150,7 @@ jobs:
           ./gradlew :app:assemblePreRelease \
             --build-cache \
             --parallel \
+            -PreactNativeArchitectures=arm64-v8a \
             -PpreReleaseVersionCode="$PRERELEASE_VERSION_CODE" \
             -PpreReleaseVersionName="$PRERELEASE_VERSION_NAME" \
             --stacktrace

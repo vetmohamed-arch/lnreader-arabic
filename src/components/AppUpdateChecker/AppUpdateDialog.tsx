@@ -1,8 +1,10 @@
 import { StyleSheet, useWindowDimensions } from 'react-native';
 import * as Linking from 'expo-linking';
+import * as Clipboard from 'expo-clipboard';
 import { ScrollView } from 'react-native-gesture-handler';
 
 import { getString } from '@i18n/translations';
+import { showToast } from '@utils/showToast';
 
 import { Dialog } from '../Dialog';
 import type { AppRelease } from './useAppUpdateChecker';
@@ -26,6 +28,15 @@ const AppUpdateDialog = ({
     }
   };
 
+  // A download manager with several connections fetches the APK much faster
+  // than the browser does over a slow line.
+  const copyLink = async () => {
+    if (release.downloadUrl) {
+      await Clipboard.setStringAsync(release.downloadUrl);
+      showToast(getString('common.updateLinkCopied'));
+    }
+  };
+
   return (
     <Dialog.Root visible onDismiss={onDismiss}>
       <Dialog.Title>
@@ -45,6 +56,11 @@ const AppUpdateDialog = ({
         <Dialog.Action
           title={getString('common.skipVersion')}
           onPress={onIgnore}
+        />
+        <Dialog.Action
+          title={getString('common.copyLink')}
+          disabled={!release.downloadUrl}
+          onPress={() => void copyLink()}
         />
         <Dialog.Action
           title={getString('common.install')}
