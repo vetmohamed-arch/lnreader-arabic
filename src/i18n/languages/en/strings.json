@@ -728,7 +728,18 @@
       "glossaryPlaceholder": "Qi = تشي\nNine Star Hegemon Body Art = فن جسد المهيمن ذو النجوم التسعة",
       "save": "Save glossary",
       "saved": "Glossary saved",
-      "engine": "Uses Microsoft Edge translation, and Google when Edge fails."
+      "engine": "Uses Microsoft Edge translation, and Google when Edge fails.",
+      "gemini": "Gemini AI translation",
+      "geminiDescription": "Smoother, context-aware translation with your own free key from aistudio.google.com. Edge takes over if Gemini fails.",
+      "geminiKey": "Gemini API key",
+      "geminiKeySave": "Save key",
+      "geminiKeySaved": "Key saved",
+      "geminiLearn": "Save the terms Gemini translates",
+      "geminiLearnDescription": "Names and terms go to the learned glossary below, so Edge and Google translate them the same way.",
+      "geminiLastError": "Last Gemini error: %{error}",
+      "learned": "Learned terms (%{count})",
+      "learnedDescription": "Added by Gemini. Used by every translator after your own glossary. Edit or delete lines freely.",
+      "learnedSave": "Save learned terms"
     }
   },
   "readerSettings": {
