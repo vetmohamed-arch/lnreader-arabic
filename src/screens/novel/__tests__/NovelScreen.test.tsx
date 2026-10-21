@@ -223,6 +223,8 @@ jest.mock('../components/EditInfoModal', () => {
   return () => React.createElement(Text, { testID: 'edit-info-modal' }, 'edit');
 });
 
+jest.mock('../components/DownloadChapterRangeModal', () => () => null);
+
 jest.mock('../components/DownloadCustomChapterModal', () => {
   const React = require('react');
   const { Text } = require('react-native');

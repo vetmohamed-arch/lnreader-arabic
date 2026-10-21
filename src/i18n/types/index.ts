@@ -503,6 +503,10 @@ export interface StringMap {
   'novelScreen.download.custom': 'string';
   'novelScreen.download.customAmount': 'string';
   'novelScreen.download.fromHere': 'string';
+  'novelScreen.download.range': 'string';
+  'novelScreen.download.rangeFrom': 'string';
+  'novelScreen.download.rangeTo': 'string';
+  'novelScreen.download.rangeToEnd': 'string';
   'novelScreen.download.upToHere': 'string';
   'novelScreen.download.delete': 'string';
   'novelScreen.download.next': 'string';
