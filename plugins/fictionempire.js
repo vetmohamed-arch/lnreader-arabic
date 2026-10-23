@@ -24,7 +24,7 @@ function FictionEmpirePlugin() {
   this.site = SITE;
   // Same spelling as the app's language filter, or the plugin stays hidden.
   this.lang = '\u200eالعربية';
-  this.version = '1.0.1';
+  this.version = '1.0.2';
   this.downloadConcurrency = 4;
   this.indexCache = undefined;
 }
@@ -120,6 +120,20 @@ FictionEmpirePlugin.prototype.searchNovels = function (searchTerm, pageNo) {
   });
 };
 
+// Chapter 0 is the reader's guide (characters and the story so far). It goes
+// at the end of the list: at the top it would spoil the novel for a new reader.
+function guideLast(chapters) {
+  return chapters
+    .filter(function (c) {
+      return c.n !== 0;
+    })
+    .concat(
+      chapters.filter(function (c) {
+        return c.n === 0;
+      }),
+    );
+}
+
 FictionEmpirePlugin.prototype.parseNovel = function (novelPath) {
   return this.findNovel(novelPath).then(function (n) {
     return {
@@ -131,7 +145,7 @@ FictionEmpirePlugin.prototype.parseNovel = function (novelPath) {
       summary: n.summary,
       status:
         n.status === 'Completed' ? NovelStatus.Completed : NovelStatus.Ongoing,
-      chapters: (n.chapters || []).map(function (c) {
+      chapters: guideLast(n.chapters || []).map(function (c) {
         return {
           name: c.title,
           path: n.id + '/' + c.file,
