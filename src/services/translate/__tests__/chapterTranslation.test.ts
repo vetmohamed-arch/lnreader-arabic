@@ -6,6 +6,7 @@ import {
   renderTranslation,
   translateChapterParts,
   isArabicText,
+  sourceKey,
 } from '../chapterTranslation';
 import { applyGlossary, glossaryKey, parseGlossary } from '../glossary';
 import { BUILTIN_GLOSSARY } from '../builtinGlossary';
@@ -128,15 +129,63 @@ describe('renderTranslation', () => {
 describe('getChapterTranslation', () => {
   const chapter = { pluginId: 'fz', novelId: 1, chapterId: 7 };
 
-  it('uses the cached translation without calling the network', async () => {
-    jest
-      .mocked(NativeFile.readFile)
-      .mockResolvedValue(JSON.stringify([{ html: '<hr>' }]));
+  it('uses the cached translation of the same text without calling the network', async () => {
+    jest.mocked(NativeFile.readFile).mockResolvedValue(
+      JSON.stringify({
+        source: sourceKey('<p>A</p>'),
+        parts: [{ html: '<hr>' }],
+      }),
+    );
     await expect(
       getChapterTranslation(chapter, '<p>A</p>', ''),
     ).resolves.toEqual([{ html: '<hr>' }]);
     expect(NativeFile.readFile).toHaveBeenCalledWith('/t/v3/ar/fz/1/7.json');
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('translates again when the chapter text changed since it was saved', async () => {
+    jest.mocked(NativeFile.readFile).mockResolvedValue(
+      JSON.stringify({
+        source: sourceKey('<p>Old</p>'),
+        parts: [{ html: '<hr>' }],
+      }),
+    );
+    mockFetch.mockImplementation(edgeEcho);
+    await expect(
+      getChapterTranslation(chapter, '<p>New</p>', ''),
+    ).resolves.toEqual([{ tag: 'p', original: 'New', text: 'ar:New' }]);
+    expect(mockFetch).toHaveBeenCalled();
+    const [path, body] = jest.mocked(NativeFile.writeFile).mock.calls[0];
+    expect(path).toBe('/t/v3/ar/fz/1/7.json');
+    expect(JSON.parse(body).source).toBe(sourceKey('<p>New</p>'));
+  });
+
+  it('translates again a translation saved before the text was remembered', async () => {
+    jest
+      .mocked(NativeFile.readFile)
+      .mockResolvedValue(JSON.stringify([{ html: '<hr>' }]));
+    mockFetch.mockImplementation(edgeEcho);
+    await expect(
+      getChapterTranslation(chapter, '<p>A</p>', ''),
+    ).resolves.toEqual([{ tag: 'p', original: 'A', text: 'ar:A' }]);
+  });
+
+  it('falls back to the old translation when translating again fails', async () => {
+    jest
+      .mocked(NativeFile.readFile)
+      .mockResolvedValue(JSON.stringify([{ html: '<hr>' }]));
+    mockFetch.mockRejectedValue(new Error('offline'));
+    await expect(
+      getChapterTranslation(chapter, '<p>A</p>', ''),
+    ).resolves.toEqual([{ html: '<hr>' }]);
+  });
+
+  it('keys the text by its paragraphs, not its markup', () => {
+    expect(sourceKey('<p>A</p><p>B</p>')).toBe(
+      sourceKey('<div><p class="x">A</p>\n<p>B</p></div>'),
+    );
+    expect(sourceKey('<p>A</p><p>B</p>')).not.toBe(sourceKey('<p>AB</p>'));
+    expect(sourceKey('<p>A</p>')).not.toBe(sourceKey('<p>a</p>'));
   });
 
   it('translates, saves under a glossary-specific name, and survives a failed save', async () => {
