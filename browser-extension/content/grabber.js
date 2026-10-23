@@ -488,7 +488,9 @@
     if (typeof value === 'object') {
       const keys = Object.keys(value).sort((a, b) => (/token|auth|session|user/i.test(a) ? 0 : 1) - (/token|auth|session|user/i.test(b) ? 0 : 1));
       for (const k of keys) {
-        const f = findToken(value[k], depth + 1);
+        const v = value[k];
+        if (/^(access_?token|auth_?token|token|jwt)$/i.test(k) && typeof v === 'string' && v.length > 20) return v.replace(/^Bearer\s+/i, '');
+        const f = findToken(v, depth + 1);
         if (f) return f;
       }
     }
@@ -511,13 +513,18 @@
       if (omni) return `${omni[1].toLowerCase()}-${omni[2]}`;
       return p.match(/\/novel\/([^/?#]+)/)?.[1] || '';
     },
-    token() {
+    cachedToken: undefined,
+    async token() {
+      if (this.cachedToken !== undefined) return this.cachedToken;
       const c = document.cookie.match(/(?:^|;\s*)(?:auth[_-]?token|access[_-]?token|token)=([^;]+)/i);
-      return findToken(storageObject(localStorage), 0) || findToken(storageObject(sessionStorage), 0) || (c && decodeURIComponent(c[1]));
+      let t = findToken(storageObject(localStorage), 0) || findToken(storageObject(sessionStorage), 0) || (c && decodeURIComponent(c[1]));
+      if (!t) t = (await chrome.runtime.sendMessage({ type: 'fzToken' }).catch(() => null))?.token;
+      this.cachedToken = t || null;
+      return this.cachedToken;
     },
     async request(path, withAuth) {
       const headers = [['content-type', 'application/json']];
-      const token = withAuth ? this.token() : undefined;
+      const token = withAuth ? await this.token() : undefined;
       if (token) headers.push(['authorization', 'Bearer ' + token]);
       const res = await fetch('/api/__api_party/fictionzone', {
         method: 'POST',
@@ -564,6 +571,7 @@
         },
         chapters,
         needsLogin: !chapters.length && /^(fq|qimao)-/.test(slug),
+        loggedIn: !!(await this.token()),
       };
     },
     async chapter(c) {
@@ -643,13 +651,17 @@
 
   async function analyze() {
     const files = pageFiles();
+    let fzInfo = null;
     if (fz.match()) {
       try {
         const r = await fz.analyze();
-        if (r) {
+        if (r && r.chapters.length) {
           lastAnalysis = { kind: 'fictionzone', ...r };
           return { ...lastAnalysis, files, running: job ? job.state : null };
         }
+        // No chapters from the API (Omniportal without a login it accepts):
+        // fall back to reading the page itself like any other site.
+        fzInfo = r;
       } catch (e) {
         return { kind: 'error', error: e.message, files };
       }
@@ -661,9 +673,10 @@
       if (madara.length) toc = { chapters: madara, selector: '.wp-manga-chapter a' };
     }
     const isChapter = current.length > 1200 && (current.next || current.prev || toc.chapters.length < 10);
-    const novel = novelInfo(document, isChapter);
+    const novel = fzInfo ? { ...fzInfo.novel, url: isChapter ? fzInfo.novel.url : location.href, source: undefined } : novelInfo(document, isChapter);
     lastAnalysis = { kind: isChapter ? 'chapter' : toc.chapters.length ? 'toc' : current.length > 300 ? 'chapter' : 'unknown', novel, chapters: toc.chapters, toc, current: { title: current.title, length: current.length, next: current.next, prev: current.prev } };
-    return { ...lastAnalysis, toc: undefined, tocPaged: !!document.querySelector('.pagination a, a[rel="next"]') && !isChapter, files, running: job ? job.state : null };
+    const login = fzInfo && lastAnalysis.kind === 'unknown' ? { needsLogin: fzInfo.needsLogin, loggedIn: fzInfo.loggedIn } : {};
+    return { ...lastAnalysis, ...login, toc: undefined, tocPaged: !!document.querySelector('.pagination a, a[rel="next"]') && !isChapter, files, running: job ? job.state : null };
   }
 
   async function withRetry(fn, tries = 3) {
