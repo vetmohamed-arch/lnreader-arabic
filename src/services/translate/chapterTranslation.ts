@@ -206,10 +206,38 @@ const cacheFile = (
 };
 
 /**
+ * A short key for the chapter's text, so a translation is only reused while
+ * the text it was made from is unchanged. Built from the extracted paragraphs,
+ * not the raw HTML, so the reader and the downloader (which sanitize slightly
+ * differently) agree on it.
+ */
+export const sourceKey = (html: string) => {
+  let hash = 0x811c9dc5;
+  for (const part of extractParagraphs(html)) {
+    const text = 'text' in part ? part.text : '';
+    for (let i = 0; i < text.length; i++) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    hash ^= 10; // paragraph break
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+};
+
+type CachedTranslation = { source: string; parts: TranslatedPart[] };
+
+/**
  * Translates a chapter once and keeps it on disk, so it stays readable
  * offline. A changed glossary is cached separately and translated again;
  * learned terms are left out of that key, or each new term would make every
  * saved chapter translate again.
+ *
+ * The saved translation remembers which text it was made from. When the
+ * chapter itself changes (the author edits it, or it is downloaded again with
+ * new text), the old translation is not reused: the chapter is translated
+ * again. If that fails (offline, say), the old translation is still shown
+ * rather than nothing.
  */
 export const getChapterTranslation = async (
   chapter: { pluginId: string; novelId: number; chapterId: number },
@@ -224,20 +252,37 @@ export const getChapterTranslation = async (
     glossary,
     engine.engine,
   );
+  const source = sourceKey(html);
+  let stale: TranslatedPart[] | undefined;
   try {
-    return JSON.parse(await NativeFile.readFile(path));
+    const saved = JSON.parse(await NativeFile.readFile(path)) as
+      | CachedTranslation
+      | TranslatedPart[];
+    // Translations saved before this check have no source key: they may be
+    // of an older version of the chapter, so they are only a fallback.
+    if (!Array.isArray(saved) && saved.source === source) {
+      return saved.parts;
+    }
+    stale = Array.isArray(saved) ? saved : saved.parts;
   } catch {
     // Not translated yet.
   }
-  const parts = await translateChapterParts(
-    html,
-    `${glossary}\n${engine.learnedGlossary}`,
-    engine,
-  );
+  let parts: TranslatedPart[];
+  try {
+    parts = await translateChapterParts(
+      html,
+      `${glossary}\n${engine.learnedGlossary}`,
+      engine,
+    );
+  } catch (error) {
+    if (stale) return stale;
+    throw error;
+  }
   // A failed save only costs offline access; still return the translation.
   try {
     await NativeFile.mkdir(dir);
-    await NativeFile.writeFile(path, JSON.stringify(parts));
+    const saved: CachedTranslation = { source, parts };
+    await NativeFile.writeFile(path, JSON.stringify(saved));
   } catch {}
   return parts;
 };
