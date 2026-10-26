@@ -12,6 +12,27 @@ const WORD_CHAR = 'A-Za-z0-9\\u0600-\\u06FF';
 const escapeRegExp = (text: string) =>
   text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const ARABIC = /[\u0600-\u06FF]/;
+
+/** True for a term written in Arabic letters, such as «الذي». */
+export const isArabicTerm = (term: string) => ARABIC.test(term);
+
+/**
+ * Learned terms are what Gemini picked up while translating, so they are only
+ * ever source-language names. A learned line whose term is Arabic (a common
+ * word Gemini listed by mistake, e.g. «الذي = ...») would rewrite that word in
+ * every translated chapter, so such lines are dropped. Only the user's own
+ * glossary may hold Arabic fixes.
+ */
+export const learnedGlossaryLines = (text: string) =>
+  text
+    .split('\n')
+    .filter(line => {
+      const at = line.indexOf('=');
+      return at < 0 || !isArabicTerm(line.slice(0, at));
+    })
+    .join('\n');
+
 export const parseGlossary = (text: string): GlossaryEntry[] =>
   text
     .split('\n')
