@@ -143,6 +143,55 @@ describe('getChapterTranslation with Gemini', () => {
     );
   });
 
+  it('never learns a term written in Arabic', async () => {
+    setMMKVObject(CHAPTER_GENERAL_SETTINGS, {
+      translationEngine: 'gemini',
+      geminiApiKey: 'key',
+    });
+    mockFetch.mockImplementation(
+      geminiEcho([
+        { source: 'الذي', arabic: 'ارثه المطلق' },
+        { source: 'Lin Feng', arabic: 'لين فنغ' },
+      ]),
+    );
+    await getChapterTranslation(chapter, '<p>Lin Feng</p>', '');
+    expect(
+      getMMKVObject<any>(CHAPTER_GENERAL_SETTINGS)?.translationLearnedGlossary,
+    ).toBe('Lin Feng = لين فنغ');
+  });
+
+  it('ignores an Arabic line already saved in the learned terms', async () => {
+    setMMKVObject(CHAPTER_GENERAL_SETTINGS, {
+      translationEngine: 'gemini',
+      geminiApiKey: 'key',
+      translationLearnedGlossary: 'الذي = ارثه المطلق\nLin Feng = لين فنغ',
+    });
+    mockFetch.mockImplementation(async () =>
+      response({
+        candidates: [
+          {
+            content: {
+              parts: [
+                {
+                  text: JSON.stringify({
+                    paragraphs: ['لين فنغ الذي ضربه'],
+                    terms: [],
+                  }),
+                },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+    const parts = await getChapterTranslation(
+      chapter,
+      '<p>Lin Feng who hit him</p>',
+      '',
+    );
+    expect(parts[0]).toMatchObject({ text: 'لين فنغ الذي ضربه' });
+  });
+
   it('falls back to Edge, with the learned terms, when Gemini fails', async () => {
     setMMKVObject(CHAPTER_GENERAL_SETTINGS, {
       translationEngine: 'gemini',

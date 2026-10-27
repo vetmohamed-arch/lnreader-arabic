@@ -1,5 +1,5 @@
 import { withTimeout } from '@utils/fetch/fetch';
-import type { GlossaryEntry } from './glossary';
+import { isArabicTerm, type GlossaryEntry } from './glossary';
 
 /**
  * AI translation with the user's own Gemini API key. Unlike Edge or Google it
@@ -195,6 +195,7 @@ export const translateWithGemini = async (
         arabic &&
         source.length <= 60 &&
         !source.includes('=') &&
+        !isArabicTerm(source) &&
         !knownTerms.has(source.toLowerCase())
       ) {
         knownTerms.add(source.toLowerCase());

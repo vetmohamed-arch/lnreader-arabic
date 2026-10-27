@@ -11,7 +11,13 @@ import {
   translateTexts as translateWithEdge,
 } from './microsoftTranslator';
 import { translateWithGoogle } from './googleTranslator';
-import { applyGlossary, glossaryKey, parseGlossary } from './glossary';
+import {
+  applyGlossary,
+  glossaryKey,
+  isArabicTerm,
+  learnedGlossaryLines,
+  parseGlossary,
+} from './glossary';
 import { BUILTIN_GLOSSARY } from './builtinGlossary';
 import { DEFAULT_GEMINI_MODEL, translateWithGemini } from './geminiTranslator';
 
@@ -36,7 +42,9 @@ const readEngineSettings = (): EngineSettings => {
       settings?.translationEngine === 'gemini' && apiKey ? 'gemini' : 'edge',
     apiKey,
     model: settings?.geminiModel?.trim() || DEFAULT_GEMINI_MODEL,
-    learnedGlossary: settings?.translationLearnedGlossary ?? '',
+    learnedGlossary: learnedGlossaryLines(
+      settings?.translationLearnedGlossary ?? '',
+    ),
     learnTerms: settings?.geminiLearnTerms !== false,
   };
 };
@@ -56,7 +64,10 @@ const saveLearnedTerms = (terms: { source: string; arabic: string }[]) => {
     ),
   );
   const lines = terms
-    .filter(term => !known.has(term.source.toLowerCase()))
+    .filter(
+      term =>
+        !isArabicTerm(term.source) && !known.has(term.source.toLowerCase()),
+    )
     .map(term => `${term.source} = ${term.arabic}`);
   if (!lines.length) return;
   setMMKVObject(CHAPTER_GENERAL_SETTINGS, {
